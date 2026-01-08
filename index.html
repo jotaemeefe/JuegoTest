@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Juego de Carreras 2D</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-wrapper">
+    <header>
+      <h1>Juego de Carreras 2D</h1>
+      <p>Usa ← → o A/D para moverte. Evita los obstáculos y consigue la mejor puntuación.</p>
+    </header>
+
+    <section class="hud">
+      <div class="hud-item">Puntuación: <span id="score">0</span></div>
+      <div class="hud-item">Mejor: <span id="best-score">0</span></div>
+      <button id="restart" type="button">Reiniciar</button>
+    </section>
+
+    <canvas id="game" width="480" height="640" aria-label="Juego de carreras 2d"></canvas>
+
+    <footer>
+      <p>Consejo: mantén la calma y busca los huecos en la carretera.</p>
+    </footer>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
