@@ -1,0 +1,82 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at top, #1f2937 0%, #0f172a 55%, #0b0f1f 100%);
+  color: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.game-wrapper {
+  width: min(720px, 100%);
+  display: grid;
+  gap: 16px;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+header p {
+  margin: 0;
+  color: #cbd5f5;
+}
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.hud-item {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  font-weight: 600;
+}
+
+#restart {
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: none;
+  background: #38bdf8;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#restart:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(56, 189, 248, 0.4);
+}
+
+canvas {
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.4);
+  background: #0b1120;
+}
+
+footer {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
