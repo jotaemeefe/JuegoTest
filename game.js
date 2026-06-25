@@ -100,7 +100,8 @@ const canvasWrap = document.querySelector('.game-canvas-wrapper');
 let phase          = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
 let gameMode       = 'multi';   // 'multi' | 'solo'
 let isHost         = false;
-let selectedRival  = RIVALS[0]; // rival chosen on rival-select screen
+let selectedRival    = RIVALS[0]; // rival chosen on rival-select screen
+let selectedRivalIdx = 0;         // index in RIVALS — stable key for localStorage
 
 const keys = { left: false, right: false, down: false };
 
@@ -124,14 +125,15 @@ let winner      = null;  // 'local' | 'remote'
 
 // Lap timing & records
 let lapStartTime  = 0;        // performance.now() when current lap began
-let bestLapMs     = parseInt(localStorage.getItem('cr_best_lap_ms')) || Infinity;
+let bestLapMs     = Number(localStorage.getItem('cr_best_lap_ms')) || Infinity;
 let lastLapMs     = 0;
 let sessionRecord = false;    // true if a new record was set this race
 let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
-let wasOnTrack = true;
-let shakeTimer = null;
+let wasOnTrack      = true;
+let shakeTimer      = null;
+let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -307,7 +309,7 @@ function drawCar(car, styleIdx) {
   ctx.fillStyle = 'rgba(10, 20, 40, 0.88)';
   ctx.fillRect(-3, -5, 6, 3.5);
 
-  // Number plate (host only)
+  // Number plate
   if (s.num) {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 7px monospace';
@@ -610,7 +612,7 @@ function stopLoop() {
 function onMsg(data) {
   if (!data || !data.type) return;
 
-  if (data.type === 'ready' && isHost && phase !== 'racing' && phase !== 'done') {
+  if (data.type === 'ready' && isHost && phase !== 'racing' && phase !== 'done' && phase !== 'countdown') {
     Net.send({ type: 'start' });
     beginCountdown();
     startResultPoll();
@@ -650,8 +652,7 @@ function onMsg(data) {
 
   // Only host executes restart; guest sends request, host responds with 'start'
   if (data.type === 'restart' && isHost && phase === 'done') {
-    resetGame();
-    beginCountdown();
+    beginCountdown(); // beginCountdown calls resetGame internally
     Net.send({ type: 'start' });
   }
 }
@@ -813,8 +814,9 @@ function buildRivalGrid() {
   // Bind click handlers
   document.querySelectorAll('.rival-card').forEach(card => {
     card.addEventListener('click', () => {
-      const idx = parseInt(card.dataset.rivalIdx, 10);
-      selectedRival = RIVALS[idx];
+      const idx    = parseInt(card.dataset.rivalIdx, 10);
+      selectedRival    = RIVALS[idx];
+      selectedRivalIdx = idx;
       gameMode = 'solo';
       isHost   = true;
       beginCountdown();
@@ -824,21 +826,26 @@ function buildRivalGrid() {
 }
 
 document.getElementById('btn-solo').addEventListener('click', () => {
+  // Cancel any in-flight animation timers before rebuilding
+  rivalAnimTimers.forEach(clearTimeout);
+  rivalAnimTimers = [];
   buildRivalGrid();
   goTo('rival');
   // Staggered card entrance animation
-  setTimeout(() => {
+  const outer = setTimeout(() => {
     document.querySelectorAll('.rival-card').forEach((card, i) => {
-      setTimeout(() => card.classList.add('show'), i * 45);
+      const t = setTimeout(() => card.classList.add('show'), i * 45);
+      rivalAnimTimers.push(t);
     });
   }, 40);
+  rivalAnimTimers.push(outer);
 });
 
 document.getElementById('btn-restart').addEventListener('click', () => {
   if (gameMode === 'multi') {
     if (isHost) {
-      // Host initiates restart, notifies guest
-      resetGame(); beginCountdown(); Net.send({ type: 'start' });
+      // beginCountdown() calls resetGame() internally — don't call it twice
+      beginCountdown(); Net.send({ type: 'start' });
     } else {
       // Guest requests restart; host will respond with 'start'
       Net.send({ type: 'restart' });
@@ -854,6 +861,7 @@ document.getElementById('btn-menu').addEventListener('click', () => {
   stopResultPoll();
   if (gameMode === 'multi') Net.destroy();
   gameMode = 'multi';
+  isHost   = false;
   goTo('lobby');
 });
 
@@ -871,8 +879,8 @@ function pollResults() {
       document.getElementById('result-sub').textContent = won
         ? `Le ganaste a ${apellido} (${diff.label}) 🇦🇷`
         : `${apellido} (${diff.label}) te ganó esta vez — ¡Revancha!`;
-      // Save rival result to localStorage for win tracking
-      const rKey = `cr_rival_${RIVALS.indexOf(selectedRival)}`;
+      // Save rival result: victories persist; only write loss if no prior result
+      const rKey = `cr_rival_${selectedRivalIdx}`;
       if (won || !localStorage.getItem(rKey)) localStorage.setItem(rKey, won ? 'win' : 'loss');
     } else {
       document.getElementById('result-sub').textContent = won
