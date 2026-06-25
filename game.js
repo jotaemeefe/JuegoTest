@@ -343,9 +343,9 @@ function updateHUD() {
   const lap = Math.min(local.lap + 1, TOTAL_LAPS);
   hudLap.textContent = `VUELTA ${lap}/${TOTAL_LAPS}`;
 
-  const myLapScore  = local.lap  * 10 + local.nextCP;
-  const itsLapScore = remote.lap * 10 + remote.nextCP;
-  hudPos.textContent = myLapScore >= itsLapScore ? '1°' : '2°';
+  const myScore  = local.finished  ? Infinity : local.lap  * 10 + local.nextCP;
+  const itsScore = remote.finished ? Infinity : remote.lap * 10 + remote.nextCP;
+  hudPos.textContent = myScore >= itsScore ? '1°' : '2°';
 
   hudRole.textContent = gameMode === 'solo' ? 'CPU 🤖' : (isHost ? 'HOST' : 'GUEST');
 }
@@ -467,10 +467,11 @@ function stopLoop() {
 function onMsg(data) {
   if (!data || !data.type) return;
 
-  if (data.type === 'ready' && isHost) {
-    // Guest connected — start countdown
+  if (data.type === 'ready' && isHost && phase !== 'racing' && phase !== 'done') {
+    // Guest connected — start countdown (guard against mid-game reconnect)
     Net.send({ type: 'start' });
     beginCountdown();
+    startResultPoll();
   }
 
   if (data.type === 'start' && !isHost) {
@@ -621,6 +622,7 @@ document.getElementById('btn-solo').addEventListener('click', () => {
   myIdx    = 0;
   hudRole.textContent = 'CPU 🤖';
   beginCountdown();
+  startResultPoll();
 });
 
 document.getElementById('btn-restart').addEventListener('click', () => {
@@ -628,10 +630,12 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   resetGame();
   goTo('game');
   startLoop();
+  startResultPoll();  // reinicia el poll para esta nueva partida
 });
 
 document.getElementById('btn-menu').addEventListener('click', () => {
   stopLoop();
+  stopResultPoll();
   if (gameMode === 'multi') Net.destroy();
   gameMode = 'multi';
   goTo('lobby');
@@ -649,7 +653,14 @@ function pollResults() {
       ? 'Completaste las 3 vueltas primero 🇦🇷'
       : 'El rival ganó esta vez — ¡Revancha!';
     goTo('results');
-    clearInterval(resultPollId);
+    stopResultPoll();
   }
 }
-resultPollId = setInterval(pollResults, 300);
+function startResultPoll() {
+  stopResultPoll();
+  resultPollId = setInterval(pollResults, 300);
+}
+function stopResultPoll() {
+  if (resultPollId) { clearInterval(resultPollId); resultPollId = null; }
+}
+startResultPoll();
