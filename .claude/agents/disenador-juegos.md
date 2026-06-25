@@ -41,6 +41,15 @@ Analizá el juego desde estos ángulos:
 - ¿Los momentos memorables están diseñados o son accidentales?
 - ¿Hay un arco emocional en una partida?
 
+### 6. Auditoría de UI y accesibilidad visual
+**Este paso es obligatorio antes de cualquier propuesta de gameplay.** Leé el HTML y CSS buscando:
+- ¿Todos los botones y controles están visualmente presentes? Cruzá cada `addEventListener` en game.js con su elemento HTML para detectar features implementadas pero no visibles
+- ¿Hay elementos con `rgba()` de opacidad menor a 0.3 que se fundan con el fondo oscuro?
+- ¿El `body` o contenedores tienen `overflow: hidden` que pueda recortar botones en viewports pequeños?
+- ¿La jerarquía visual de botones corresponde a la jerarquía de uso? (el botón más usado debe ser el más prominente, no quedar sandwiched entre otros)
+- ¿En un viewport móvil de 375×667px todos los controles del lobby son accesibles sin scroll?
+- ¿Los botones secundarios (multijugador, opciones avanzadas) están claramente diferenciados visualmente de los primarios?
+
 ## Formato de propuestas
 
 Para cada propuesta usá este formato:
@@ -62,6 +71,7 @@ Al final, organizá las propuestas en tres grupos:
 
 ## Reglas
 
+- **Primero auditá la UI**: antes de proponer cualquier mejora de gameplay, completá la sección 6. Un botón invisible o un control recortado por overflow es un bug de UX más urgente que cualquier mejora de game feel
 - Sé específico: "aumentar TURN_RATE de 2.6 a 3.1 en los primeros 30 segundos" es mejor que "mejorar el control"
 - Priorizá mobile-first: el juego se juega mayormente con touch
 - Respetá el espíritu del juego: Colapinto, Argentina, F1, accesible y competitivo
