@@ -52,9 +52,10 @@ const hudPos  = document.getElementById('hud-pos');
 const hudRole = document.getElementById('hud-role');
 
 // ── Mutable state ─────────────────────────────────────────────────────────────
-let phase   = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
-let isHost  = false;
-let myIdx   = 0;         // 0=host car, 1=guest car
+let phase    = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
+let gameMode = 'multi';   // 'multi' | 'solo'
+let isHost   = false;
+let myIdx    = 0;         // 0=host car, 1=guest car
 
 const keys = { left: false, right: false, down: false };
 
@@ -292,6 +293,51 @@ function updateCar(car, dt) {
   car.y += Math.sin(car.angle) * car.speed * dt;
 }
 
+// ── AI driver ─────────────────────────────────────────────────────────────────
+const AI_MAX_SPD  = MAX_SPD_ON * 0.88;
+const AI_WP_REACH = 70; // px radius to consider waypoint reached
+
+function updateAI(car, dt) {
+  if (car.finished) return;
+
+  // Navigate toward current checkpoint
+  const wp = CPS[car.nextCP];
+  const dx = wp.x - car.x;
+  const dy = wp.y - car.y;
+
+  // Advance waypoint when close enough
+  if (dx * dx + dy * dy < AI_WP_REACH * AI_WP_REACH) {
+    // Mirror checkpoint/lap logic
+    if (car.nextCP === 0) {
+      car.lap++;
+      if (car.lap >= TOTAL_LAPS) { car.finished = true; return; }
+    }
+    car.nextCP = (car.nextCP + 1) % CPS.length;
+  }
+
+  // Steer toward waypoint
+  const targetAngle = Math.atan2(dy, dx);
+  let diff = targetAngle - car.angle;
+  // Normalise to [-π, π]
+  while (diff >  Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+
+  const maxTurn = TURN_RATE * 0.82 * dt;
+  // Add slight imperfection so AI isn't robotic
+  const noise = (Math.random() - 0.5) * 0.06 * dt;
+  car.angle += Math.sign(diff) * Math.min(Math.abs(diff), maxTurn) + noise;
+
+  // Physics (same as player but capped at AI speed)
+  const onTrack = isOnTrack(car.x, car.y);
+  const maxSpd  = onTrack ? AI_MAX_SPD : MAX_SPD_OFF;
+  car.speed += AUTO_ACCEL * dt;
+  car.speed -= car.speed * FRICTION_K * dt;
+  car.speed = Math.max(0, Math.min(car.speed, maxSpd));
+
+  car.x += Math.cos(car.angle) * car.speed * dt;
+  car.y += Math.sin(car.angle) * car.speed * dt;
+}
+
 // ── HUD update ────────────────────────────────────────────────────────────────
 function updateHUD() {
   const lap = Math.min(local.lap + 1, TOTAL_LAPS);
@@ -301,7 +347,7 @@ function updateHUD() {
   const itsLapScore = remote.lap * 10 + remote.nextCP;
   hudPos.textContent = myLapScore >= itsLapScore ? '1°' : '2°';
 
-  hudRole.textContent = isHost ? 'HOST' : 'GUEST';
+  hudRole.textContent = gameMode === 'solo' ? 'CPU 🤖' : (isHost ? 'HOST' : 'GUEST');
 }
 
 // ── Countdown overlay ─────────────────────────────────────────────────────────
@@ -367,8 +413,10 @@ function loop(ts) {
     checkCheckpoints(local);
     updateHUD();
 
-    // Broadcast position
-    if (ts - lastNetSend >= NET_MS) {
+    // AI update (solo mode) or broadcast position (multi)
+    if (gameMode === 'solo') {
+      updateAI(remote, dt);
+    } else if (ts - lastNetSend >= NET_MS) {
       lastNetSend = ts;
       Net.send({
         type: 'pos',
@@ -378,19 +426,24 @@ function loop(ts) {
     }
 
     // Render
-    const rp = remoteRenderPos();
+    const rp = gameMode === 'solo' ? remote : remoteRenderPos();
     drawTrack();
     drawCar({ ...rp, finished: remote.finished }, isHost ? 1 : 0);
     drawCar(local, isHost ? 0 : 1);
 
-    // Win check
-    if (local.finished && !winner) {
-      winner = 'local';
-      Net.send({ type: 'finish' });
-      phase = 'done';
+    // Win check — also check remote AI in solo mode
+    if (!winner) {
+      if (local.finished) {
+        winner = 'local';
+        if (gameMode === 'multi') Net.send({ type: 'finish' });
+        phase = 'done';
+      } else if (gameMode === 'solo' && remote.finished) {
+        winner = 'remote';
+        phase  = 'done';
+      }
     }
   } else if (phase === 'done') {
-    const rp = remoteRenderPos();
+    const rp = gameMode === 'solo' ? remote : remoteRenderPos();
     drawTrack();
     drawCar({ ...rp }, isHost ? 1 : 0);
     drawCar(local, isHost ? 0 : 1);
@@ -442,7 +495,7 @@ function onMsg(data) {
     phase  = 'done';
   }
 
-  if (data.type === 'restart') {
+  if (data.type === 'restart' && gameMode === 'multi') {
     resetGame();
     beginCountdown();
   }
@@ -562,8 +615,16 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
   goTo('lobby');
 });
 
+document.getElementById('btn-solo').addEventListener('click', () => {
+  gameMode = 'solo';
+  isHost   = true;
+  myIdx    = 0;
+  hudRole.textContent = 'CPU 🤖';
+  beginCountdown();
+});
+
 document.getElementById('btn-restart').addEventListener('click', () => {
-  Net.send({ type: 'restart' });
+  if (gameMode === 'multi') Net.send({ type: 'restart' });
   resetGame();
   goTo('game');
   startLoop();
@@ -571,7 +632,8 @@ document.getElementById('btn-restart').addEventListener('click', () => {
 
 document.getElementById('btn-menu').addEventListener('click', () => {
   stopLoop();
-  Net.destroy();
+  if (gameMode === 'multi') Net.destroy();
+  gameMode = 'multi';
   goTo('lobby');
 });
 
