@@ -30,19 +30,50 @@ const START = [
 ];
 
 // Visual style for Colapinto — Alpine BWT
-const CAR_STYLE_HOST = { body: '#0090d0', stripe: '#f569b7', cockpit: '#001f3f', num: '43' };
+// Visual style for Colapinto — Alpine BWT (the player's car)
+const CAR_STYLE_HOST = { body: '#0090d0', stripe: '#f569b7', cockpit: '#001f3f', helmet: '#74c0fc', num: '43' };
 
-// Rival grid — current F1 drivers
+// Full 2025 F1 grid — body/accent = team livery, helmet = driver's signature helmet colour
+// skill = AI speed factor (1.0 = same max speed as player)
 const RIVALS = [
-  { name: 'Max Verstappen', team: 'Red Bull',      body: '#1e3a8a', accent: '#fbbf24', num: '1'  },
-  { name: 'Lewis Hamilton',  team: 'Ferrari',       body: '#dc2626', accent: '#ffffff', num: '44' },
-  { name: 'Lando Norris',    team: 'McLaren',       body: '#f97316', accent: '#111827', num: '4'  },
-  { name: 'George Russell',  team: 'Mercedes',      body: '#134e4a', accent: '#6ee7b7', num: '63' },
-  { name: 'Charles Leclerc', team: 'Ferrari',       body: '#dc2626', accent: '#f59e0b', num: '16' },
-  { name: 'Fernando Alonso', team: 'Aston Martin',  body: '#064e3b', accent: '#34d399', num: '14' },
-  { name: 'Carlos Sainz',    team: 'Williams',      body: '#003087', accent: '#e8f4ff', num: '55' },
-  { name: 'Oliver Bearman',  team: 'Haas',          body: '#111827', accent: '#dc2626', num: '87' },
+  // ── Red Bull Racing ──────────────────────────────────────────────────────────
+  { name:'Max Verstappen',    team:'Red Bull Racing',   num:'1',  body:'#1d2f6a', accent:'#ffd700', helmet:'#cc1100', skill:0.96 },
+  { name:'Liam Lawson',       team:'Red Bull Racing',   num:'30', body:'#1d2f6a', accent:'#ffd700', helmet:'#1a1a1a', skill:0.84 },
+  // ── Scuderia Ferrari ─────────────────────────────────────────────────────────
+  { name:'Charles Leclerc',   team:'Scuderia Ferrari',  num:'16', body:'#cc0000', accent:'#f8fafc', helmet:'#cc0000', skill:0.92 },
+  { name:'Lewis Hamilton',    team:'Scuderia Ferrari',  num:'44', body:'#cc0000', accent:'#f8fafc', helmet:'#1a1a1a', skill:0.94 },
+  // ── McLaren F1 Team ──────────────────────────────────────────────────────────
+  { name:'Lando Norris',      team:'McLaren F1 Team',   num:'4',  body:'#ff6b00', accent:'#1a1a1a', helmet:'#ff6b00', skill:0.93 },
+  { name:'Oscar Piastri',     team:'McLaren F1 Team',   num:'81', body:'#ff6b00', accent:'#ffd700', helmet:'#ffd700', skill:0.89 },
+  // ── Mercedes-AMG Petronas ────────────────────────────────────────────────────
+  { name:'George Russell',    team:'Mercedes-AMG',      num:'63', body:'#1e293b', accent:'#00d2be', helmet:'#ffd700', skill:0.90 },
+  { name:'Kimi Antonelli',    team:'Mercedes-AMG',      num:'12', body:'#1e293b', accent:'#00d2be', helmet:'#cc0000', skill:0.84 },
+  // ── Aston Martin ─────────────────────────────────────────────────────────────
+  { name:'Fernando Alonso',   team:'Aston Martin',      num:'14', body:'#005540', accent:'#c0a030', helmet:'#1a1a1a', skill:0.91 },
+  { name:'Lance Stroll',      team:'Aston Martin',      num:'18', body:'#005540', accent:'#c0a030', helmet:'#1d4ed8', skill:0.81 },
+  // ── BWT Alpine F1 ────────────────────────────────────────────────────────────
+  { name:'Pierre Gasly',      team:'BWT Alpine',        num:'10', body:'#0090d0', accent:'#f569b7', helmet:'#1565c0', skill:0.87 },
+  { name:'Franco Colapinto',  team:'BWT Alpine',        num:'43', body:'#0090d0', accent:'#f569b7', helmet:'#74c0fc', skill:0.85 },
+  // ── Williams Racing ──────────────────────────────────────────────────────────
+  { name:'Alexander Albon',   team:'Williams Racing',   num:'23', body:'#003087', accent:'#e8f4ff', helmet:'#cc0000', skill:0.86 },
+  { name:'Carlos Sainz',      team:'Williams Racing',   num:'55', body:'#003087', accent:'#e8f4ff', helmet:'#ffd700', skill:0.88 },
+  // ── MoneyGram Haas F1 ────────────────────────────────────────────────────────
+  { name:'Esteban Ocon',      team:'Haas F1 Team',      num:'31', body:'#1c1c1c', accent:'#cc0000', helmet:'#1d4ed8', skill:0.85 },
+  { name:'Oliver Bearman',    team:'Haas F1 Team',      num:'87', body:'#1c1c1c', accent:'#cc0000', helmet:'#cc0000', skill:0.79 },
+  // ── Kick Sauber ──────────────────────────────────────────────────────────────
+  { name:'Nico Hülkenberg',   team:'Kick Sauber',       num:'27', body:'#111111', accent:'#22c55e', helmet:'#22c55e', skill:0.86 },
+  { name:'Gabriel Bortoleto', team:'Kick Sauber',       num:'5',  body:'#111111', accent:'#22c55e', helmet:'#065f46', skill:0.80 },
+  // ── Visa Cash App Racing Bulls ───────────────────────────────────────────────
+  { name:'Yuki Tsunoda',      team:'Racing Bulls',      num:'22', body:'#0f172a', accent:'#ef4444', helmet:'#ef4444', skill:0.87 },
+  { name:'Isack Hadjar',      team:'Racing Bulls',      num:'6',  body:'#0f172a', accent:'#ef4444', helmet:'#1d4ed8', skill:0.82 },
 ];
+
+function rivalDiff(skill) {
+  if (skill >= 0.92) return { label: 'ÉLITE',    color: '#ef4444' };
+  if (skill >= 0.88) return { label: 'EXPERTO',  color: '#f97316' };
+  if (skill >= 0.84) return { label: 'DURO',     color: '#fbbf24' };
+  return                     { label: 'MEDIO',    color: '#22c55e' };
+}
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game');
@@ -239,7 +270,7 @@ function drawTrack() {
 function carStyle(styleIdx) {
   if (styleIdx === 0) return CAR_STYLE_HOST;
   const r = selectedRival;
-  return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', num: r.num };
+  return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', helmet: r.helmet, num: r.num };
 }
 
 function drawCar(car, styleIdx) {
@@ -265,10 +296,16 @@ function drawCar(car, styleIdx) {
   ctx.fillRect(-14, 17, 28, 4);
 
   // Cockpit / halo
-  ctx.fillStyle = s.cockpit;
+  ctx.fillStyle = '#111';
   ctx.fillRect(-5, -10, 10, 18);
-  ctx.fillStyle = '#2563eb22';
-  ctx.fillRect(-3, -8, 6, 6);
+  // Helmet (driver's signature colour)
+  ctx.fillStyle = s.helmet || '#555';
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 4, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Visor (dark tinted strip)
+  ctx.fillStyle = 'rgba(10, 20, 40, 0.88)';
+  ctx.fillRect(-3, -5, 6, 3.5);
 
   // Number plate (host only)
   if (s.num) {
@@ -354,11 +391,14 @@ function updateCar(car, dt) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_MAX_SPD  = MAX_SPD_ON * 0.88;
 const AI_WP_REACH = 70; // px radius to consider waypoint reached
 
 function updateAI(car, dt) {
   if (car.finished) return;
+
+  const skill = selectedRival ? selectedRival.skill : 0.88;
+  // Better drivers have less steering noise
+  const noiseAmp = 0.14 - skill * 0.10; // 0.04 at skill 1.0 → 0.14 at skill 0.0
 
   // Navigate toward current checkpoint
   const wp = CPS[car.nextCP];
@@ -367,7 +407,6 @@ function updateAI(car, dt) {
 
   // Advance waypoint when close enough
   if (dx * dx + dy * dy < AI_WP_REACH * AI_WP_REACH) {
-    // Mirror checkpoint/lap logic
     if (car.nextCP === 0) {
       car.lap++;
       if (car.lap >= TOTAL_LAPS) { car.finished = true; return; }
@@ -378,18 +417,17 @@ function updateAI(car, dt) {
   // Steer toward waypoint
   const targetAngle = Math.atan2(dy, dx);
   let diff = targetAngle - car.angle;
-  // Normalise to [-π, π]
   while (diff >  Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
 
   const maxTurn = TURN_RATE * 0.82 * dt;
-  // Add slight imperfection so AI isn't robotic
-  const noise = (Math.random() - 0.5) * 0.06 * dt;
+  const noise   = (Math.random() - 0.5) * noiseAmp * dt;
   car.angle += Math.sign(diff) * Math.min(Math.abs(diff), maxTurn) + noise;
 
-  // Physics (same as player but capped at AI speed)
-  const onTrack = isOnTrack(car.x, car.y);
-  const maxSpd  = onTrack ? AI_MAX_SPD : MAX_SPD_OFF;
+  // Physics — skill drives max speed
+  const aiMaxSpd = MAX_SPD_ON * skill;
+  const onTrack  = isOnTrack(car.x, car.y);
+  const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;
   car.speed -= car.speed * FRICTION_K * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
@@ -407,7 +445,19 @@ function updateHUD() {
   const itsScore = remote.finished ? Infinity : remote.lap * 10 + remote.nextCP;
   hudPos.textContent = myScore >= itsScore ? '1°' : '2°';
 
-  hudRole.textContent = gameMode === 'solo' ? 'CPU 🤖' : (isHost ? 'HOST' : 'GUEST');
+  if (gameMode === 'solo' && selectedRival) {
+    const tag = selectedRival.name.split(' ').pop().substring(0, 3).toUpperCase();
+    hudRole.textContent        = `VS ${tag}`;
+    hudRole.style.color        = selectedRival.accent;
+    hudRole.style.background   = selectedRival.body + '99';
+    hudRole.style.borderRadius = '4px';
+    hudRole.style.padding      = '1px 5px';
+  } else {
+    hudRole.textContent      = isHost ? 'HOST' : 'GUEST';
+    hudRole.style.color      = '';
+    hudRole.style.background = '';
+    hudRole.style.padding    = '';
+  }
 }
 
 // ── Countdown overlay ─────────────────────────────────────────────────────────
@@ -732,8 +782,56 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
   goTo('lobby');
 });
 
+function buildRivalGrid() {
+  const grid = document.querySelector('.rival-grid');
+  grid.innerHTML = '';
+  RIVALS.forEach((r, idx) => {
+    const diff = rivalDiff(r.skill);
+    const wins = localStorage.getItem(`cr_rival_${idx}`);
+    const badge = wins === 'win'  ? '<span class="rival-badge badge-win">VENCIDO</span>'
+                : wins === 'loss' ? '<span class="rival-badge badge-loss">REVANCHA</span>'
+                : '';
+    const card = document.createElement('div');
+    card.className = 'rival-card';
+    card.dataset.rivalIdx = idx;
+    card.innerHTML = `
+      <div class="rival-band" style="background:${r.body};border-bottom:3px solid ${r.accent};"></div>
+      <div class="rival-info">
+        <div class="rival-name">${r.name.split(' ').pop().toUpperCase()} <span class="rival-num">#${r.num}</span></div>
+        <div class="rival-team">${r.team}</div>
+        <div class="rival-footer">
+          <span class="rival-diff" style="color:${diff.color}">${diff.label}</span>
+          ${badge}
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+  // Update win counter in title
+  const wins = RIVALS.filter((_, i) => localStorage.getItem(`cr_rival_${i}`) === 'win').length;
+  const titleEl = document.getElementById('rival-screen-title');
+  if (titleEl) titleEl.textContent = wins > 0 ? `ELIGE TU RIVAL · ${wins}/${RIVALS.length}` : 'ELIGE TU RIVAL';
+  // Bind click handlers
+  document.querySelectorAll('.rival-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.rivalIdx, 10);
+      selectedRival = RIVALS[idx];
+      gameMode = 'solo';
+      isHost   = true;
+      beginCountdown();
+      startResultPoll();
+    });
+  });
+}
+
 document.getElementById('btn-solo').addEventListener('click', () => {
+  buildRivalGrid();
   goTo('rival');
+  // Staggered card entrance animation
+  setTimeout(() => {
+    document.querySelectorAll('.rival-card').forEach((card, i) => {
+      setTimeout(() => card.classList.add('show'), i * 45);
+    });
+  }, 40);
 });
 
 document.getElementById('btn-restart').addEventListener('click', () => {
@@ -767,9 +865,20 @@ function pollResults() {
     const won = winner === 'local';
     document.getElementById('result-icon').textContent  = won ? '🏆' : '💨';
     document.getElementById('result-title').textContent = won ? '¡VAMOS COLAPINTO!' : '¡BUEN INTENTO!';
-    document.getElementById('result-sub').textContent   = won
-      ? 'Completaste las 3 vueltas primero 🇦🇷'
-      : 'El rival ganó esta vez — ¡Revancha!';
+    if (gameMode === 'solo' && selectedRival) {
+      const apellido = selectedRival.name.split(' ').pop().toUpperCase();
+      const diff     = rivalDiff(selectedRival.skill);
+      document.getElementById('result-sub').textContent = won
+        ? `Le ganaste a ${apellido} (${diff.label}) 🇦🇷`
+        : `${apellido} (${diff.label}) te ganó esta vez — ¡Revancha!`;
+      // Save rival result to localStorage for win tracking
+      const rKey = `cr_rival_${RIVALS.indexOf(selectedRival)}`;
+      if (won || !localStorage.getItem(rKey)) localStorage.setItem(rKey, won ? 'win' : 'loss');
+    } else {
+      document.getElementById('result-sub').textContent = won
+        ? 'Completaste las 3 vueltas primero 🇦🇷'
+        : 'El rival ganó esta vez — ¡Revancha!';
+    }
     // Show best lap info
     if (resultLap) {
       if (lastLapMs > 0 && isFinite(bestLapMs)) {
@@ -794,17 +903,6 @@ function stopResultPoll() {
 }
 // ── Rival selection screen ────────────────────────────────────────────────────
 document.getElementById('btn-cancel-rival').addEventListener('click', () => goTo('lobby'));
-
-document.querySelectorAll('.rival-card').forEach(card => {
-  card.addEventListener('click', () => {
-    const idx = parseInt(card.dataset.rivalIdx, 10);
-    selectedRival = RIVALS[idx];
-    gameMode = 'solo';
-    isHost   = true;
-    beginCountdown();
-    startResultPoll();
-  });
-});
 
 startResultPoll();
 updateLobbyRecord();
