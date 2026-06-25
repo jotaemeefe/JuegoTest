@@ -29,10 +29,19 @@ const START = [
   { x: 316, y: 503, a: -Math.PI / 2 },
 ];
 
-// Visual styles [host = P1 Williams, guest = rival]
-const CAR_STYLE = [
-  { body: '#003087', stripe: '#e8f4ff', cockpit: '#0a1628', num: '43' },
-  { body: '#b91c1c', stripe: '#facc15', cockpit: '#200808', num: null },
+// Visual style for Colapinto — Alpine BWT
+const CAR_STYLE_HOST = { body: '#0090d0', stripe: '#f569b7', cockpit: '#001f3f', num: '43' };
+
+// Rival grid — current F1 drivers
+const RIVALS = [
+  { name: 'Max Verstappen', team: 'Red Bull',      body: '#1e3a8a', accent: '#fbbf24', num: '1'  },
+  { name: 'Lewis Hamilton',  team: 'Ferrari',       body: '#dc2626', accent: '#ffffff', num: '44' },
+  { name: 'Lando Norris',    team: 'McLaren',       body: '#f97316', accent: '#111827', num: '4'  },
+  { name: 'George Russell',  team: 'Mercedes',      body: '#134e4a', accent: '#6ee7b7', num: '63' },
+  { name: 'Charles Leclerc', team: 'Ferrari',       body: '#dc2626', accent: '#f59e0b', num: '16' },
+  { name: 'Fernando Alonso', team: 'Aston Martin',  body: '#064e3b', accent: '#34d399', num: '14' },
+  { name: 'Carlos Sainz',    team: 'Williams',      body: '#003087', accent: '#e8f4ff', num: '55' },
+  { name: 'Oliver Bearman',  team: 'Haas',          body: '#111827', accent: '#dc2626', num: '87' },
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -43,6 +52,7 @@ const SCR = {
   lobby:   document.getElementById('screen-lobby'),
   create:  document.getElementById('screen-create'),
   join:    document.getElementById('screen-join'),
+  rival:   document.getElementById('screen-rival'),
   game:    document.getElementById('screen-game'),
   results: document.getElementById('screen-results'),
 };
@@ -56,10 +66,10 @@ const resultLap = document.getElementById('result-lap');
 const canvasWrap = document.querySelector('.game-canvas-wrapper');
 
 // ── Mutable state ─────────────────────────────────────────────────────────────
-let phase    = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
-let gameMode = 'multi';   // 'multi' | 'solo'
-let isHost   = false;
-let myIdx    = 0;         // 0=host car, 1=guest car
+let phase          = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
+let gameMode       = 'multi';   // 'multi' | 'solo'
+let isHost         = false;
+let selectedRival  = RIVALS[0]; // rival chosen on rival-select screen
 
 const keys = { left: false, right: false, down: false };
 
@@ -90,6 +100,7 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
 let wasOnTrack = true;
+let shakeTimer = null;
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -112,13 +123,13 @@ const Net = (() => {
   }
 
   return {
-    create(onCode, onPeer, onMsg, onClose) {
+    create(onCode, onPeer, onMsg, onClose, onErr) {
       msgCb = onMsg; closeCb = onClose;
       const id = chars();
       peer = new Peer(id);
       peer.on('open',       ()  => onCode(id));
       peer.on('connection', c   => { wire(c); c.on('open', onPeer); });
-      peer.on('error',      err => console.warn('peer', err));
+      peer.on('error',      err => { console.warn('peer', err); onErr && onErr(err); });
     },
 
     join(code, onPeer, onMsg, onClose, onErr) {
@@ -225,8 +236,14 @@ function drawTrack() {
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
+function carStyle(styleIdx) {
+  if (styleIdx === 0) return CAR_STYLE_HOST;
+  const r = selectedRival;
+  return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', num: r.num };
+}
+
 function drawCar(car, styleIdx) {
-  const s = CAR_STYLE[styleIdx];
+  const s = carStyle(styleIdx);
   ctx.save();
   ctx.translate(car.x, car.y);
   ctx.rotate(car.angle + Math.PI / 2);   // angle 0 = east; +π/2 so car "nose" points in angle dir
@@ -443,7 +460,7 @@ function drawOffTrackVignette(alpha) {
 
 // ── Main game loop ─────────────────────────────────────────────────────────────
 function loop(ts) {
-  const dt = Math.min((ts - lastTime) / 1000, 0.05) || 0.016;
+  const dt = lastTime === 0 ? 0.016 : Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
 
   if (phase === 'countdown') {
@@ -490,8 +507,11 @@ function loop(ts) {
     if (!onTrk) {
       drawOffTrackVignette(0.55);
       if (wasOnTrack) {
+        clearTimeout(shakeTimer);
+        canvasWrap.classList.remove('shake');
+        void canvasWrap.offsetWidth; // force reflow to restart animation
         canvasWrap.classList.add('shake');
-        setTimeout(() => canvasWrap.classList.remove('shake'), 320);
+        shakeTimer = setTimeout(() => canvasWrap.classList.remove('shake'), 320);
       }
     }
     wasOnTrack = onTrk;
@@ -541,7 +561,6 @@ function onMsg(data) {
   if (!data || !data.type) return;
 
   if (data.type === 'ready' && isHost && phase !== 'racing' && phase !== 'done') {
-    // Guest connected — start countdown (guard against mid-game reconnect)
     Net.send({ type: 'start' });
     beginCountdown();
     startResultPoll();
@@ -549,29 +568,41 @@ function onMsg(data) {
 
   if (data.type === 'start' && !isHost) {
     beginCountdown();
+    startResultPoll();
   }
 
   if (data.type === 'pos') {
-    remote.prevX    = remote.x;
-    remote.prevY    = remote.y;
-    remote.prevAngle = remote.angle;
-    remote.x        = data.x;
-    remote.y        = data.y;
-    remote.angle    = data.angle;
-    remote.speed    = data.speed;
-    remote.lap      = data.lap;
-    remote.nextCP   = data.cp;
+    const { x, y, angle, speed, lap, cp } = data;
+    if (!isFinite(x) || x < -500 || x > 1000) return;
+    if (!isFinite(y) || y < -500 || y > 1200) return;
+    if (!isFinite(angle)) return;
+    if (!isFinite(speed) || speed < 0 || speed > MAX_SPD_ON * 1.5) return;
+    if (typeof lap !== 'number' || lap < 0 || lap > TOTAL_LAPS) return;
+    if (typeof cp  !== 'number' || cp  < 0 || cp  >= CPS.length) return;
+    remote.prevX      = remote.x;
+    remote.prevY      = remote.y;
+    remote.prevAngle  = remote.angle;
+    remote.x          = x;
+    remote.y          = y;
+    remote.angle      = angle;
+    remote.speed      = speed;
+    remote.lap        = lap;
+    remote.nextCP     = cp;
     remote.lastUpdate = performance.now();
   }
 
   if (data.type === 'finish' && !winner) {
+    // Require remote to be near the end to prevent premature finish messages
+    if (remote.lap < TOTAL_LAPS - 1) return;
     winner = 'remote';
     phase  = 'done';
   }
 
-  if (data.type === 'restart' && gameMode === 'multi') {
+  // Only host executes restart; guest sends request, host responds with 'start'
+  if (data.type === 'restart' && isHost && phase === 'done') {
     resetGame();
     beginCountdown();
+    Net.send({ type: 'start' });
   }
 }
 
@@ -598,6 +629,8 @@ function resetGame() {
   sessionRecord    = false;
   recordFlashUntil = 0;
   wasOnTrack       = true;
+  clearTimeout(shakeTimer); shakeTimer = null;
+  canvasWrap.classList.remove('shake');
   hudTimer.textContent = '0:00.0';
   hudTimer.classList.remove('record');
   keys.left = false; keys.right = false; keys.down = false;
@@ -648,13 +681,17 @@ function goTo(name) {
 // ── UI event listeners ─────────────────────────────────────────────────────────
 document.getElementById('btn-create').addEventListener('click', () => {
   isHost = true;
-  myIdx  = 0;
   goTo('create');
+  const waitingMsg = document.getElementById('waiting-msg');
   Net.create(
     code => { document.getElementById('room-code-display').textContent = code; },
     ()   => { /* guest connected → handled in onMsg */ },
     onMsg,
     onDisconnect,
+    err  => {
+      waitingMsg.textContent = `Error: ${err.type || 'no se pudo crear la sala'}. Vuelve e intenta de nuevo.`;
+      waitingMsg.style.color = '#f97316';
+    },
   );
 });
 
@@ -676,7 +713,6 @@ document.getElementById('btn-connect').addEventListener('click', () => {
     return;
   }
   isHost = false;
-  myIdx  = 1;
   document.getElementById('join-error').textContent = '';
   Net.join(
     code,
@@ -697,20 +733,22 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
 });
 
 document.getElementById('btn-solo').addEventListener('click', () => {
-  gameMode = 'solo';
-  isHost   = true;
-  myIdx    = 0;
-  hudRole.textContent = 'CPU 🤖';
-  beginCountdown();
-  startResultPoll();
+  goTo('rival');
 });
 
 document.getElementById('btn-restart').addEventListener('click', () => {
-  if (gameMode === 'multi') Net.send({ type: 'restart' });
-  resetGame();
-  goTo('game');
-  startLoop();
-  startResultPoll();  // reinicia el poll para esta nueva partida
+  if (gameMode === 'multi') {
+    if (isHost) {
+      // Host initiates restart, notifies guest
+      resetGame(); beginCountdown(); Net.send({ type: 'start' });
+    } else {
+      // Guest requests restart; host will respond with 'start'
+      Net.send({ type: 'restart' });
+    }
+  } else {
+    resetGame(); beginCountdown();
+  }
+  startResultPoll();
 });
 
 document.getElementById('btn-menu').addEventListener('click', () => {
@@ -754,5 +792,19 @@ function startResultPoll() {
 function stopResultPoll() {
   if (resultPollId) { clearInterval(resultPollId); resultPollId = null; }
 }
+// ── Rival selection screen ────────────────────────────────────────────────────
+document.getElementById('btn-cancel-rival').addEventListener('click', () => goTo('lobby'));
+
+document.querySelectorAll('.rival-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const idx = parseInt(card.dataset.rivalIdx, 10);
+    selectedRival = RIVALS[idx];
+    gameMode = 'solo';
+    isHost   = true;
+    beginCountdown();
+    startResultPoll();
+  });
+});
+
 startResultPoll();
 updateLobbyRecord();

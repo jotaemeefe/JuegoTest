@@ -283,3 +283,51 @@ canvas {
   margin-top: 6px;
   min-height: 16px;
 }
+
+/* ── Rival selection screen ───────────────────────────────────────────────── */
+.rival-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.rival-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid #1e293b;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s, transform 0.08s;
+  user-select: none;
+}
+.rival-card:hover  { border-color: var(--sky); background: rgba(0, 160, 233, 0.09); }
+.rival-card:active { transform: scale(0.97); }
+
+.rival-swatch {
+  width: 22px;
+  height: 34px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.rival-name {
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 1.5px;
+  color: var(--white);
+}
+
+.rival-team {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+}

@@ -15,7 +15,7 @@
       <div class="logo-block">
         <div class="flag">🇦🇷</div>
         <h1>COLAPINTO<br><span>RACING</span></h1>
-        <p class="tagline">¡Vamos Franco! · 2 Jugadores · P2P</p>
+        <p class="tagline">¡Vamos Franco! · Alpine F1 · P2P</p>
         <p id="lobby-record" class="lobby-record"></p>
       </div>
       <div class="btn-group">
@@ -46,6 +46,80 @@
         <button id="btn-connect" class="btn btn-primary">CONECTAR</button>
         <button id="btn-cancel-join" class="btn btn-ghost">Cancelar</button>
       </div>
+    </div>
+
+    <!-- ELIGE TU RIVAL -->
+    <div id="screen-rival" class="screen">
+      <h2>ELIGE TU RIVAL</h2>
+      <p class="sub">¿Contra quién querés competir?</p>
+      <div class="rival-grid">
+
+        <div class="rival-card" data-rival-idx="0">
+          <div class="rival-swatch" style="background:#1e3a8a; border:2px solid #fbbf24;"></div>
+          <div>
+            <div class="rival-name">MAX VERSTAPPEN</div>
+            <div class="rival-team">Red Bull Racing · #1</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="1">
+          <div class="rival-swatch" style="background:#dc2626; border:2px solid #ffffff;"></div>
+          <div>
+            <div class="rival-name">LEWIS HAMILTON</div>
+            <div class="rival-team">Scuderia Ferrari · #44</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="2">
+          <div class="rival-swatch" style="background:#f97316; border:2px solid #111827;"></div>
+          <div>
+            <div class="rival-name">LANDO NORRIS</div>
+            <div class="rival-team">McLaren F1 Team · #4</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="3">
+          <div class="rival-swatch" style="background:#134e4a; border:2px solid #6ee7b7;"></div>
+          <div>
+            <div class="rival-name">GEORGE RUSSELL</div>
+            <div class="rival-team">Mercedes-AMG · #63</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="4">
+          <div class="rival-swatch" style="background:#dc2626; border:2px solid #f59e0b;"></div>
+          <div>
+            <div class="rival-name">CHARLES LECLERC</div>
+            <div class="rival-team">Scuderia Ferrari · #16</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="5">
+          <div class="rival-swatch" style="background:#064e3b; border:2px solid #34d399;"></div>
+          <div>
+            <div class="rival-name">FERNANDO ALONSO</div>
+            <div class="rival-team">Aston Martin · #14</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="6">
+          <div class="rival-swatch" style="background:#003087; border:2px solid #e8f4ff;"></div>
+          <div>
+            <div class="rival-name">CARLOS SAINZ</div>
+            <div class="rival-team">Williams Racing · #55</div>
+          </div>
+        </div>
+
+        <div class="rival-card" data-rival-idx="7">
+          <div class="rival-swatch" style="background:#111827; border:2px solid #dc2626;"></div>
+          <div>
+            <div class="rival-name">OLIVER BEARMAN</div>
+            <div class="rival-team">Haas F1 Team · #87</div>
+          </div>
+        </div>
+
+      </div>
+      <button id="btn-cancel-rival" class="btn btn-ghost">Cancelar</button>
     </div>
 
     <!-- JUEGO (canvas siempre en DOM) -->
