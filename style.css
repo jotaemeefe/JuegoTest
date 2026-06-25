@@ -187,11 +187,25 @@ h2 {
 }
 .hud-pos { font-size: 0.95rem; color: #fbbf24; }
 
+.hud-timer {
+  font-variant-numeric: tabular-nums;
+  color: #cbd5e1;
+  letter-spacing: 1px;
+}
+.hud-timer.record { color: #fbbf24; }
+
 .game-canvas-wrapper {
   position: relative;
   width: 100%;
   max-width: 480px;
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-4px); }
+  75%       { transform: translateX(4px); }
+}
+.shake { animation: shake 0.3s ease-in-out; }
 
 canvas {
   width: 100%;
@@ -259,3 +273,13 @@ canvas {
 .result-icon { font-size: 3rem; margin-bottom: 8px; }
 #result-title { font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
 #result-sub { color: #94a3b8; font-size: 0.88rem; margin-top: 6px; }
+.result-lap { color: #fbbf24; font-size: 0.82rem; font-weight: 700; margin-top: 8px; letter-spacing: 1px; }
+
+.lobby-record {
+  color: #fbbf24;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-top: 6px;
+  min-height: 16px;
+}

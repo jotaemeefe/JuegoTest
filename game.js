@@ -47,9 +47,13 @@ const SCR = {
   results: document.getElementById('screen-results'),
 };
 
-const hudLap  = document.getElementById('hud-lap');
-const hudPos  = document.getElementById('hud-pos');
-const hudRole = document.getElementById('hud-role');
+const hudLap    = document.getElementById('hud-lap');
+const hudTimer  = document.getElementById('hud-timer');
+const hudPos    = document.getElementById('hud-pos');
+const hudRole   = document.getElementById('hud-role');
+const lobbyRec  = document.getElementById('lobby-record');
+const resultLap = document.getElementById('result-lap');
+const canvasWrap = document.querySelector('.game-canvas-wrapper');
 
 // ── Mutable state ─────────────────────────────────────────────────────────────
 let phase    = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
@@ -76,6 +80,16 @@ let lastNetSend = 0;
 let lastTime    = 0;
 let rafId       = null;
 let winner      = null;  // 'local' | 'remote'
+
+// Lap timing & records
+let lapStartTime  = 0;        // performance.now() when current lap began
+let bestLapMs     = parseInt(localStorage.getItem('cr_best_lap_ms')) || Infinity;
+let lastLapMs     = 0;
+let sessionRecord = false;    // true if a new record was set this race
+let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
+
+// Off-track state
+let wasOnTrack = true;
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -126,6 +140,23 @@ const Net = (() => {
     },
   };
 })();
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatTime(ms) {
+  if (!isFinite(ms) || ms <= 0) return '0:00.0';
+  const totalS = Math.floor(ms / 1000);
+  const m      = Math.floor(totalS / 60);
+  const s      = totalS % 60;
+  const tenth  = Math.floor((ms % 1000) / 100);
+  return `${m}:${String(s).padStart(2, '0')}.${tenth}`;
+}
+
+function updateLobbyRecord() {
+  const stored = parseInt(localStorage.getItem('cr_best_lap_ms'));
+  if (lobbyRec) {
+    lobbyRec.textContent = isFinite(stored) ? `⏱ RÉCORD: ${formatTime(stored)}` : '';
+  }
+}
 
 // ── Track drawing ─────────────────────────────────────────────────────────────
 function drawTrack() {
@@ -258,6 +289,18 @@ function checkCheckpoints(car) {
   const dx = car.x - cp.x, dy = car.y - cp.y;
   if (dx * dx + dy * dy < cp.r * cp.r) {
     if (car.nextCP === 0) {
+      // Record lap time for local player
+      if (car === local && lapStartTime > 0) {
+        lastLapMs = performance.now() - lapStartTime;
+        lapStartTime = performance.now();
+        if (lastLapMs < bestLapMs) {
+          bestLapMs = lastLapMs;
+          sessionRecord = true;
+          recordFlashUntil = performance.now() + 2000;
+          localStorage.setItem('cr_best_lap_ms', bestLapMs);
+          updateLobbyRecord();
+        }
+      }
       car.lap++;
       if (car.lap >= TOTAL_LAPS) {
         car.finished = true;
@@ -388,6 +431,16 @@ function drawWin(won) {
   }
 }
 
+// ── Off-track vignette ────────────────────────────────────────────────────────
+function drawOffTrackVignette(alpha) {
+  const grad = ctx.createRadialGradient(240, 320, 140, 240, 320, 340);
+  grad.addColorStop(0,   `rgba(180,0,0,0)`);
+  grad.addColorStop(0.6, `rgba(180,0,0,0)`);
+  grad.addColorStop(1,   `rgba(180,0,0,${alpha})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 480, 640);
+}
+
 // ── Main game loop ─────────────────────────────────────────────────────────────
 function loop(ts) {
   const dt = Math.min((ts - lastTime) / 1000, 0.05) || 0.016;
@@ -404,6 +457,7 @@ function loop(ts) {
       countdown--;
       if (countdown < 0) {
         phase = 'racing';
+        lapStartTime = performance.now();
       } else {
         cdTimer = 1;
       }
@@ -430,6 +484,25 @@ function loop(ts) {
     drawTrack();
     drawCar({ ...rp, finished: remote.finished }, isHost ? 1 : 0);
     drawCar(local, isHost ? 0 : 1);
+
+    // Off-track feedback
+    const onTrk = isOnTrack(local.x, local.y);
+    if (!onTrk) {
+      drawOffTrackVignette(0.55);
+      if (wasOnTrack) {
+        canvasWrap.classList.add('shake');
+        setTimeout(() => canvasWrap.classList.remove('shake'), 320);
+      }
+    }
+    wasOnTrack = onTrk;
+
+    // Lap timer HUD
+    if (lapStartTime > 0) {
+      const elapsed = performance.now() - lapStartTime;
+      const isRecord = performance.now() < recordFlashUntil;
+      hudTimer.textContent = formatTime(elapsed);
+      hudTimer.classList.toggle('record', isRecord);
+    }
 
     // Win check — also check remote AI in solo mode
     if (!winner) {
@@ -516,10 +589,17 @@ function resetGame() {
     prevX: START[isHost ? 1 : 0].x, prevY: START[isHost ? 1 : 0].y,
     prevAngle: START[isHost ? 1 : 0].a, lastUpdate: 0,
   });
-  winner    = null;
-  countdown = 3;
-  cdTimer   = 1;
-  phase     = 'countdown';
+  winner           = null;
+  countdown        = 3;
+  cdTimer          = 1;
+  phase            = 'countdown';
+  lapStartTime     = 0;
+  lastLapMs        = 0;
+  sessionRecord    = false;
+  recordFlashUntil = 0;
+  wasOnTrack       = true;
+  hudTimer.textContent = '0:00.0';
+  hudTimer.classList.remove('record');
   keys.left = false; keys.right = false; keys.down = false;
 }
 
@@ -652,6 +732,17 @@ function pollResults() {
     document.getElementById('result-sub').textContent   = won
       ? 'Completaste las 3 vueltas primero 🇦🇷'
       : 'El rival ganó esta vez — ¡Revancha!';
+    // Show best lap info
+    if (resultLap) {
+      if (lastLapMs > 0 && isFinite(bestLapMs)) {
+        const isNew = sessionRecord;
+        resultLap.textContent = isNew
+          ? `⭐ RÉCORD: ${formatTime(bestLapMs)}`
+          : `Mejor vuelta: ${formatTime(bestLapMs)}`;
+      } else {
+        resultLap.textContent = '';
+      }
+    }
     goTo('results');
     stopResultPoll();
   }
@@ -664,3 +755,4 @@ function stopResultPoll() {
   if (resultPollId) { clearInterval(resultPollId); resultPollId = null; }
 }
 startResultPoll();
+updateLobbyRecord();
