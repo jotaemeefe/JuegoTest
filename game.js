@@ -9,24 +9,28 @@ const FRICTION_K    = 1.3;   // speed lost per second (proportional)
 const BRAKE_FORCE   = 450;   // px/s² when braking
 const TURN_RATE     = 2.6;   // rad/s max turn speed
 const NET_MS        = 50;    // position broadcast interval
+const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
-// Track ellipses centred at (CX, CY)
-const CX = 240, CY = 320;
-const ORX = 200, ORY = 260;   // outer radii
-const IRX = 100, IRY = 160;   // inner radii
+// Street circuit — Buenos Aires layout (polyline spine)
+const ROAD_HALF_W = 30;
+const ROAD_SPINE = [
+  [240, 580], [400, 580], [440, 540], [440, 120],
+  [400,  80], [120,  80], [ 80, 110], [ 40, 120],
+  [ 40, 540], [ 80, 580], [240, 580],
+];
 
 // Checkpoints {x,y,r} — must be hit in order; CP0 = finish line
 const CPS = [
-  { x: 330, y: 490, r: 58 },  // 0 finish (bottom-right)
-  { x: 390, y: 210, r: 58 },  // 1 top-right
-  { x:  90, y: 210, r: 58 },  // 2 top-left
-  { x:  90, y: 430, r: 58 },  // 3 bottom-left
+  { x: 240, y: 580, r: 55 },  // 0 META (bottom straight)
+  { x: 440, y: 320, r: 55 },  // 1 right straight
+  { x: 240, y:  80, r: 55 },  // 2 top straight
+  { x:  40, y: 320, r: 55 },  // 3 left straight
 ];
 
-// Starting grid [host, guest] (verified on-track)
+// Starting grid [host, guest] — bottom straight, pointing east
 const START = [
-  { x: 278, y: 488, a: -Math.PI / 2 },
-  { x: 316, y: 503, a: -Math.PI / 2 },
+  { x: 200, y: 572, a: 0 },
+  { x: 165, y: 582, a: 0 },
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -38,7 +42,7 @@ const CAR_STYLE_HOST = { body: '#0090d0', stripe: '#f569b7', cockpit: '#001f3f',
 const RIVALS = [
   // ── Red Bull Racing ──────────────────────────────────────────────────────────
   { name:'Max Verstappen',    team:'Red Bull Racing',   num:'1',  body:'#1d2f6a', accent:'#ffd700', helmet:'#cc1100', skill:0.96 },
-  { name:'Liam Lawson',       team:'Red Bull Racing',   num:'30', body:'#1d2f6a', accent:'#ffd700', helmet:'#1a1a1a', skill:0.84 },
+  { name:'Yuki Tsunoda',      team:'Red Bull Racing',   num:'22', body:'#1d2f6a', accent:'#ffd700', helmet:'#ef4444', skill:0.88 },
   // ── Scuderia Ferrari ─────────────────────────────────────────────────────────
   { name:'Charles Leclerc',   team:'Scuderia Ferrari',  num:'16', body:'#cc0000', accent:'#f8fafc', helmet:'#cc0000', skill:0.92 },
   { name:'Lewis Hamilton',    team:'Scuderia Ferrari',  num:'44', body:'#cc0000', accent:'#f8fafc', helmet:'#1a1a1a', skill:0.94 },
@@ -64,7 +68,7 @@ const RIVALS = [
   { name:'Nico Hülkenberg',   team:'Kick Sauber',       num:'27', body:'#111111', accent:'#22c55e', helmet:'#22c55e', skill:0.86 },
   { name:'Gabriel Bortoleto', team:'Kick Sauber',       num:'5',  body:'#111111', accent:'#22c55e', helmet:'#065f46', skill:0.80 },
   // ── Visa Cash App Racing Bulls ───────────────────────────────────────────────
-  { name:'Yuki Tsunoda',      team:'Racing Bulls',      num:'22', body:'#0f172a', accent:'#ef4444', helmet:'#ef4444', skill:0.87 },
+  { name:'Liam Lawson',       team:'Racing Bulls',      num:'30', body:'#0f172a', accent:'#ef4444', helmet:'#1a1a1a', skill:0.84 },
   { name:'Isack Hadjar',      team:'Racing Bulls',      num:'6',  body:'#0f172a', accent:'#ef4444', helmet:'#1d4ed8', skill:0.82 },
 ];
 
@@ -74,6 +78,24 @@ function rivalDiff(skill) {
   if (skill >= 0.84) return { label: 'DURO',     color: '#fbbf24' };
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
+
+// Fine-grained AI navigation waypoints — follows road spine, CCW from bottom straight
+const AI_WAYPOINTS = [
+  [320, 572],  // 0  bottom straight →
+  [415, 572],  // 1  approaching SE corner
+  [440, 450],  // 2  right side ↑
+  [440, 320],  // 3  right straight mid
+  [440, 190],  // 4  right side approaching NE corner
+  [415,  90],  // 5  NE corner
+  [300,  82],  // 6  top straight ←
+  [160,  82],  // 7  top straight ←
+  [ 88,  95],  // 8  NW corner
+  [ 42, 200],  // 9  left side ↓
+  [ 42, 320],  // 10 left straight mid
+  [ 42, 480],  // 11 left side approaching SW
+  [ 88, 570],  // 12 SW corner
+  [160, 572],  // 13 bottom straight returning →
+];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game');
@@ -122,6 +144,8 @@ let lastNetSend = 0;
 let lastTime    = 0;
 let rafId       = null;
 let winner      = null;  // 'local' | 'remote'
+let localDamage = 0;     // 0–100 accumulated damage
+let aiWpIdx     = 0;     // AI waypoint index
 
 // Lap timing & records
 let lapStartTime  = 0;        // performance.now() when current lap began
@@ -185,6 +209,97 @@ const Net = (() => {
   };
 })();
 
+// ── Audio (Web Audio API) ─────────────────────────────────────────────────────
+let audioCtx = null;
+let engineOsc = null, engineOsc2 = null, engineGain = null;
+let brakeNoiseNode = null, brakeGainNode = null;
+let engineRunning = false;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function startEngine() {
+  if (engineRunning) return;
+  const ac = getAudioCtx();
+  engineOsc  = ac.createOscillator(); engineOsc.type  = 'sawtooth'; engineOsc.frequency.value  = 80;
+  engineOsc2 = ac.createOscillator(); engineOsc2.type = 'square';   engineOsc2.frequency.value = 82;
+  const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1200; filter.Q.value = 1;
+  engineGain = ac.createGain(); engineGain.gain.value = 0;
+  engineOsc.connect(filter); engineOsc2.connect(filter); filter.connect(engineGain); engineGain.connect(ac.destination);
+  engineOsc.start(); engineOsc2.start();
+  engineGain.gain.setTargetAtTime(0.12, ac.currentTime, 0.1);
+  engineRunning = true;
+}
+
+function stopEngine() {
+  if (!engineRunning || !engineOsc) return;
+  const ac = getAudioCtx();
+  engineGain.gain.setTargetAtTime(0, ac.currentTime, 0.2);
+  const o1 = engineOsc, o2 = engineOsc2;
+  setTimeout(() => { try { o1.stop(); o2.stop(); } catch(_){} }, 400);
+  engineRunning = false; engineOsc = null; engineOsc2 = null; engineGain = null;
+}
+
+function updateEnginePitch(speed) {
+  if (!engineRunning || !engineOsc) return;
+  const ac = getAudioCtx();
+  const freq = 80 + Math.max(0, Math.min(1, speed / MAX_SPD_ON)) * 140;
+  engineOsc.frequency.setTargetAtTime(freq, ac.currentTime, 0.05);
+  if (engineOsc2) engineOsc2.frequency.setTargetAtTime(freq + 2, ac.currentTime, 0.05);
+}
+
+function startBrakeSound() {
+  if (brakeNoiseNode) return;
+  const ac = getAudioCtx();
+  const buf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+  const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  brakeNoiseNode = ac.createBufferSource(); brakeNoiseNode.buffer = buf; brakeNoiseNode.loop = true;
+  const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3500; f.Q.value = 8;
+  brakeGainNode = ac.createGain(); brakeGainNode.gain.value = 0;
+  brakeNoiseNode.connect(f); f.connect(brakeGainNode); brakeGainNode.connect(ac.destination);
+  brakeNoiseNode.start();
+  brakeGainNode.gain.setTargetAtTime(0.07, ac.currentTime, 0.03);
+}
+
+function stopBrakeSound() {
+  if (!brakeNoiseNode) return;
+  const ac = getAudioCtx();
+  brakeGainNode.gain.setTargetAtTime(0, ac.currentTime, 0.08);
+  const n = brakeNoiseNode; setTimeout(() => { try { n.stop(); } catch(_){} }, 300);
+  brakeNoiseNode = null; brakeGainNode = null;
+}
+
+function playCollisionSound() {
+  try {
+    const ac = getAudioCtx();
+    const size = Math.floor(ac.sampleRate * 0.15);
+    const buf = ac.createBuffer(1, size, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < size; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (size * 0.15));
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 800;
+    const g = ac.createGain(); g.gain.value = 0.6;
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
+  } catch(_){}
+}
+
+function playGoSound() {
+  try {
+    const ac = getAudioCtx();
+    [261.6, 329.6, 392.0].forEach(f => {
+      const osc = ac.createOscillator(); osc.type = 'square'; osc.frequency.value = f;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.08, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
+      osc.connect(g); g.connect(ac.destination);
+      osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.6);
+    });
+  } catch(_){}
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTime(ms) {
   if (!isFinite(ms) || ms <= 0) return '0:00.0';
@@ -203,69 +318,57 @@ function updateLobbyRecord() {
 }
 
 // ── Track drawing ─────────────────────────────────────────────────────────────
+function drawSpinePath() {
+  ctx.beginPath();
+  ROAD_SPINE.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+}
+
 function drawTrack() {
-  // Grass
-  ctx.fillStyle = '#1d4d11';
+  // Grass background
+  ctx.fillStyle = '#1a4a10';
   ctx.fillRect(0, 0, 480, 640);
 
-  // Outer rumble band (alternating red/white dashes)
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  // Kerb — dashed, slightly wider than tarmac
   ctx.save();
-  ctx.lineWidth = 18;
-  ctx.setLineDash([28, 28]);
-  ctx.strokeStyle = '#dc2626';
-  ctx.beginPath(); ctx.ellipse(CX, CY, ORX + 6, ORY + 6, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.lineDashOffset = 28;
-  ctx.strokeStyle = '#f8fafc';
-  ctx.beginPath(); ctx.ellipse(CX, CY, ORX + 6, ORY + 6, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = ROAD_HALF_W * 2 + 8;
+  ctx.setLineDash([18, 18]);
+  ctx.strokeStyle = '#dc2626'; drawSpinePath(); ctx.stroke();
+  ctx.lineDashOffset = 18;
+  ctx.strokeStyle = '#f8fafc'; drawSpinePath(); ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   // Tarmac
-  ctx.fillStyle = '#2d3748';
-  ctx.beginPath(); ctx.ellipse(CX, CY, ORX, ORY, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = ROAD_HALF_W * 2;
+  ctx.strokeStyle = '#2d3748';
+  drawSpinePath(); ctx.stroke();
 
-  // Inner island grass
-  ctx.fillStyle = '#1d4d11';
-  ctx.beginPath(); ctx.ellipse(CX, CY, IRX, IRY, 0, 0, Math.PI * 2); ctx.fill();
-
-  // Inner rumble band
+  // Racing line dashes
   ctx.save();
-  ctx.lineWidth = 12;
-  ctx.setLineDash([22, 22]);
-  ctx.strokeStyle = '#dc2626';
-  ctx.beginPath(); ctx.ellipse(CX, CY, IRX, IRY, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.lineDashOffset = 22;
-  ctx.strokeStyle = '#f8fafc';
-  ctx.beginPath(); ctx.ellipse(CX, CY, IRX, IRY, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.restore();
-
-  // Centre dashed racing line
-  ctx.save();
-  ctx.setLineDash([18, 14]);
-  ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+  ctx.setLineDash([14, 10]);
+  ctx.strokeStyle = 'rgba(251,191,36,0.22)';
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(CX, CY, (ORX + IRX) / 2, (ORY + IRY) / 2, 0, 0, Math.PI * 2);
-  ctx.stroke();
+  drawSpinePath(); ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish line (checker stripe — bottom right of oval)
-  const fy = 490;
-  const fxL = 240, fxR = 390;
-  const sw = 9;
+  // Start/finish chequered stripe
+  const fxL = 207, fxR = 280, fy = 580, sw = 8;
   for (let i = 0; fxL + i * sw < fxR; i++) {
     ctx.fillStyle = i % 2 === 0 ? '#f8fafc' : '#111827';
-    ctx.fillRect(fxL + i * sw, fy - 5, sw, 10);
+    ctx.fillRect(fxL + i * sw, fy - 4, sw, 8);
   }
-  ctx.fillStyle = '#f8fafc88';
-  ctx.font = 'bold 8px monospace';
+  ctx.fillStyle = 'rgba(248,250,252,0.7)';
+  ctx.font = 'bold 7px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('META', (fxL + fxR) / 2, fy - 10);
+  ctx.fillText('META', (fxL + fxR) / 2, fy - 7);
 
-  // Track name
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  ctx.font = 'bold 11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('CIRCUITO COLAPINTO', CX, CY);
+  // Watermark
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.font = 'bold 10px monospace';
+  ctx.fillText('CIRCUITO COLAPINTO · BUENOS AIRES', 240, 340);
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
@@ -332,10 +435,40 @@ function remoteRenderPos() {
 }
 
 // ── Track collision ───────────────────────────────────────────────────────────
+function ptSegDist2(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return (px - ax) ** 2 + (py - ay) ** 2;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return (px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2;
+}
+
 function isOnTrack(x, y) {
-  const outer = ((x - CX) / ORX) ** 2 + ((y - CY) / ORY) ** 2;
-  const inner = ((x - CX) / IRX) ** 2 + ((y - CY) / IRY) ** 2;
-  return outer <= 1.0 && inner >= 1.0;
+  const r2 = ROAD_HALF_W * ROAD_HALF_W;
+  for (let i = 0; i < ROAD_SPINE.length - 1; i++) {
+    const [ax, ay] = ROAD_SPINE[i], [bx, by] = ROAD_SPINE[i + 1];
+    if (ptSegDist2(x, y, ax, ay, bx, by) <= r2) return true;
+  }
+  return false;
+}
+
+function resolveCarCollision(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist2 = dx * dx + dy * dy;
+  const minDist = CAR_RADIUS * 2;
+  if (dist2 >= minDist * minDist || dist2 === 0) return false;
+  const dist = Math.sqrt(dist2);
+  const nx = dx / dist, ny = dy / dist;
+  const overlap = (minDist - dist) * 0.55;
+  a.x -= nx * overlap; a.y -= ny * overlap;
+  b.x += nx * overlap; b.y += ny * overlap;
+  const aVn = (Math.cos(a.angle) * nx + Math.sin(a.angle) * ny) * a.speed;
+  const bVn = (Math.cos(b.angle) * nx + Math.sin(b.angle) * ny) * b.speed;
+  if (bVn - aVn >= 0) return true;
+  const relV = aVn - bVn;
+  a.speed = Math.max(0, a.speed - relV * 0.4);
+  b.speed = Math.max(0, b.speed - relV * 0.25);
+  return true;
 }
 
 // ── Checkpoint / lap logic ────────────────────────────────────────────────────
@@ -368,10 +501,11 @@ function checkCheckpoints(car) {
 }
 
 // ── Physics update ─────────────────────────────────────────────────────────────
-function updateCar(car, dt) {
+function updateCar(car, dt, damage = 0) {
   if (car.finished) return;
   const onTrack = isOnTrack(car.x, car.y);
-  const maxSpd  = onTrack ? MAX_SPD_ON : MAX_SPD_OFF;
+  const damageFactor = 1 - (Math.min(damage, 100) / 100) * 0.45;
+  const maxSpd  = (onTrack ? MAX_SPD_ON : MAX_SPD_OFF) * damageFactor;
 
   // Auto-accelerate (always forward)
   car.speed += AUTO_ACCEL * dt;
@@ -393,45 +527,40 @@ function updateCar(car, dt) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_WP_REACH = 70; // px radius to consider waypoint reached
+const AI_WP_REACH = 48; // px radius to advance to next waypoint
 
 function updateAI(car, dt) {
   if (car.finished) return;
 
-  const skill = selectedRival ? selectedRival.skill : 0.88;
-  // Better drivers have less steering noise
-  const noiseAmp = 0.14 - skill * 0.10; // 0.04 at skill 1.0 → 0.14 at skill 0.0
+  const skill    = selectedRival ? selectedRival.skill : 0.88;
+  const noiseAmp = 0.055 - skill * 0.038; // elite: ~0.017, medio: ~0.055
 
-  // Navigate toward current checkpoint
-  const wp = CPS[car.nextCP];
-  const dx = wp.x - car.x;
-  const dy = wp.y - car.y;
-
-  // Advance waypoint when close enough
+  // Navigate using fine-grained AI_WAYPOINTS (stays on road)
+  const wp = AI_WAYPOINTS[aiWpIdx];
+  const dx = wp[0] - car.x, dy = wp[1] - car.y;
   if (dx * dx + dy * dy < AI_WP_REACH * AI_WP_REACH) {
-    if (car.nextCP === 0) {
-      car.lap++;
-      if (car.lap >= TOTAL_LAPS) { car.finished = true; return; }
-    }
-    car.nextCP = (car.nextCP + 1) % CPS.length;
+    aiWpIdx = (aiWpIdx + 1) % AI_WAYPOINTS.length;
   }
 
-  // Steer toward waypoint
   const targetAngle = Math.atan2(dy, dx);
   let diff = targetAngle - car.angle;
   while (diff >  Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
+  const absDiff = Math.abs(diff);
 
-  const maxTurn = TURN_RATE * 0.82 * dt;
-  const noise   = (Math.random() - 0.5) * noiseAmp * dt;
-  car.angle += Math.sign(diff) * Math.min(Math.abs(diff), maxTurn) + noise;
+  const steerPow = 0.70 + skill * 0.28;
+  const maxTurn  = TURN_RATE * steerPow * dt;
+  const noise    = (Math.random() - 0.5) * noiseAmp * dt;
+  car.angle += Math.sign(diff) * Math.min(absDiff, maxTurn) + noise;
 
-  // Physics — skill drives max speed
-  const aiMaxSpd = MAX_SPD_ON * skill;
+  // Brake before sharp corners
+  const braking  = absDiff > 0.65;
+  const aiMaxSpd = MAX_SPD_ON * skill * (braking ? 0.60 : 1.0);
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;
   car.speed -= car.speed * FRICTION_K * dt;
+  if (braking) car.speed -= BRAKE_FORCE * 0.35 * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   car.x += Math.cos(car.angle) * car.speed * dt;
@@ -443,9 +572,9 @@ function updateHUD() {
   const lap = Math.min(local.lap + 1, TOTAL_LAPS);
   hudLap.textContent = `VUELTA ${lap}/${TOTAL_LAPS}`;
 
-  const myScore  = local.finished  ? Infinity : local.lap  * 10 + local.nextCP;
-  const itsScore = remote.finished ? Infinity : remote.lap * 10 + remote.nextCP;
-  hudPos.textContent = myScore >= itsScore ? '1°' : '2°';
+  // nextCP=0 means approaching finish line — worth CPS.length to avoid false 2nd
+  const cpScore = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
+  hudPos.textContent = cpScore(local) >= cpScore(remote) ? '1°' : '2°';
 
   if (gameMode === 'solo' && selectedRival) {
     const tag = selectedRival.name.split(' ').pop().substring(0, 3).toUpperCase();
@@ -510,6 +639,23 @@ function drawOffTrackVignette(alpha) {
   ctx.fillRect(0, 0, 480, 640);
 }
 
+// ── Damage bar ────────────────────────────────────────────────────────────────
+function drawDamageBar(damage) {
+  if (damage <= 0) return;
+  const ratio = Math.min(damage / 100, 1);
+  const barW = 72, barH = 6, x = 400, y = 16;
+  ctx.fillStyle = 'rgba(248,250,252,0.75)';
+  ctx.font = 'bold 6px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`DAÑO ${Math.floor(damage)}%`, x + barW, y - 1);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x - 1, y, barW + 2, barH + 2);
+  const r = Math.floor(255 * ratio), g = Math.floor(200 * (1 - ratio));
+  ctx.fillStyle = `rgb(${r},${g},0)`;
+  ctx.fillRect(x, y + 1, barW * ratio, barH);
+  ctx.textAlign = 'left';
+}
+
 // ── Main game loop ─────────────────────────────────────────────────────────────
 function loop(ts) {
   const dt = lastTime === 0 ? 0.016 : Math.min((ts - lastTime) / 1000, 0.05);
@@ -527,18 +673,20 @@ function loop(ts) {
       if (countdown < 0) {
         phase = 'racing';
         lapStartTime = performance.now();
+        playGoSound();
       } else {
         cdTimer = 1;
       }
     }
   } else if (phase === 'racing') {
-    updateCar(local, dt);
+    updateCar(local, dt, localDamage);
     checkCheckpoints(local);
     updateHUD();
 
     // AI update (solo mode) or broadcast position (multi)
     if (gameMode === 'solo') {
       updateAI(remote, dt);
+      checkCheckpoints(remote);
     } else if (ts - lastNetSend >= NET_MS) {
       lastNetSend = ts;
       Net.send({
@@ -548,25 +696,42 @@ function loop(ts) {
       });
     }
 
+    // Car-car collision (solo only — no physics on interpolated remote in multi)
+    if (gameMode === 'solo' && resolveCarCollision(local, remote)) {
+      localDamage = Math.min(100, localDamage + 18);
+      playCollisionSound();
+    }
+
+    // Engine pitch tracks speed
+    updateEnginePitch(local.speed);
+    // Brake squeal
+    if (keys.down && local.speed > 20) startBrakeSound();
+    else stopBrakeSound();
+
     // Render
     const rp = gameMode === 'solo' ? remote : remoteRenderPos();
     drawTrack();
     drawCar({ ...rp, finished: remote.finished }, isHost ? 1 : 0);
     drawCar(local, isHost ? 0 : 1);
 
-    // Off-track feedback
+    // Off-track feedback + damage
     const onTrk = isOnTrack(local.x, local.y);
     if (!onTrk) {
       drawOffTrackVignette(0.55);
+      localDamage = Math.min(100, localDamage + 3 * dt);
       if (wasOnTrack) {
+        localDamage = Math.min(100, localDamage + 8);
         clearTimeout(shakeTimer);
         canvasWrap.classList.remove('shake');
-        void canvasWrap.offsetWidth; // force reflow to restart animation
+        void canvasWrap.offsetWidth;
         canvasWrap.classList.add('shake');
         shakeTimer = setTimeout(() => canvasWrap.classList.remove('shake'), 320);
       }
     }
     wasOnTrack = onTrk;
+
+    // Damage bar drawn last so it's always on top
+    drawDamageBar(localDamage);
 
     // Lap timer HUD
     if (lapStartTime > 0) {
@@ -576,15 +741,16 @@ function loop(ts) {
       hudTimer.classList.toggle('record', isRecord);
     }
 
-    // Win check — also check remote AI in solo mode
+    // Win / total-damage check
     if (!winner) {
-      if (local.finished) {
-        winner = 'local';
+      if (localDamage >= 100) {
+        winner = 'remote'; stopEngine(); stopBrakeSound(); phase = 'done';
+      } else if (local.finished) {
+        winner = 'local'; stopEngine(); stopBrakeSound();
         if (gameMode === 'multi') Net.send({ type: 'finish' });
         phase = 'done';
       } else if (gameMode === 'solo' && remote.finished) {
-        winner = 'remote';
-        phase  = 'done';
+        winner = 'remote'; stopEngine(); stopBrakeSound(); phase = 'done';
       }
     }
   } else if (phase === 'done') {
@@ -684,6 +850,9 @@ function resetGame() {
   canvasWrap.classList.remove('shake');
   hudTimer.textContent = '0:00.0';
   hudTimer.classList.remove('record');
+  localDamage = 0;
+  aiWpIdx     = 0;
+  stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }
 
@@ -691,6 +860,7 @@ function beginCountdown() {
   resetGame();
   goTo('game');
   startLoop();
+  try { startEngine(); } catch(_){}
 }
 
 // ── Input: keyboard ────────────────────────────────────────────────────────────
@@ -826,6 +996,7 @@ function buildRivalGrid() {
 }
 
 document.getElementById('btn-solo').addEventListener('click', () => {
+  try { getAudioCtx(); } catch(_){}
   // Cancel any in-flight animation timers before rebuilding
   rivalAnimTimers.forEach(clearTimeout);
   rivalAnimTimers = [];
@@ -859,6 +1030,8 @@ document.getElementById('btn-restart').addEventListener('click', () => {
 document.getElementById('btn-menu').addEventListener('click', () => {
   stopLoop();
   stopResultPoll();
+  stopEngine();
+  stopBrakeSound();
   if (gameMode === 'multi') Net.destroy();
   gameMode = 'multi';
   isHost   = false;
@@ -911,6 +1084,11 @@ function stopResultPoll() {
 }
 // ── Rival selection screen ────────────────────────────────────────────────────
 document.getElementById('btn-cancel-rival').addEventListener('click', () => goTo('lobby'));
+
+// Unlock audio on first user gesture (required by iOS / Safari)
+['click', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => { try { getAudioCtx(); } catch(_){} }, { once: true })
+);
 
 startResultPoll();
 updateLobbyRecord();
