@@ -20,7 +20,12 @@ body {
   overflow-y: auto;
 }
 
-.app { width: min(500px, 100%); }
+.app {
+  width: min(500px, 100%);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
 
 /* ── Screens ──────────────────────────────────────────────── */
 .screen { display: none; }
@@ -217,6 +222,9 @@ h2 {
   position: relative;
   width: 100%;
   max-width: 480px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @keyframes shake {
@@ -242,6 +250,8 @@ canvas {
   max-width: 480px;
   gap: 4px;
   padding: 4px 4px 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .touch-btn {

@@ -7,39 +7,45 @@ const MAX_SPD_OFF   = 48;    // px/s off track
 const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
 const FRICTION_K    = 1.1;   // speed lost per second (proportional)
 const BRAKE_FORCE   = 550;   // px/s² when braking
-const TURN_RATE     = 3.8;   // rad/s max turn speed
+const TURN_RATE     = 5.5;   // rad/s max turn speed
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
-// Street circuit — Buenos Aires (polyline spine, 17 points)
+// Stadium oval — Buenos Aires (polyline spine, 35 points)
 const ROAD_HALF_W = 42;
 const ROAD_SPINE = [
-  // ── Main straight (east) + Turn 1 braking zone ────────────────────────────
-  [ 82, 553], [322, 553], [368, 524], [403, 476],
-  // ── Back straight (north) ─────────────────────────────────────────────────
-  [408, 300], [408, 168],
-  // ── Top hairpin complex — Turns 3-4 ───────────────────────────────────────
-  [390, 110], [352,  86], [294,  86], [234, 110],
-  // ── Technical S-curve section — Turns 5-6 ────────────────────────────────
-  [198, 164], [168, 242], [186, 328],
-  // ── Bottom-left hairpin — Turns 7-8 ──────────────────────────────────────
-  [162, 408], [108, 456], [ 68, 512],
-  // ── Return to main straight ───────────────────────────────────────────────
-  [ 82, 553],
+  // ── Main straight (west end → east) ───────────────────────────────────────
+  [ 82, 527], [152, 527], [222, 527], [292, 527], [362, 527],
+  // ── Bottom-right corner ────────────────────────────────────────────────────
+  [395, 518], [415, 498], [420, 472], [418, 447],
+  // ── Right straight (south → north) ────────────────────────────────────────
+  [414, 400], [412, 340], [412, 280], [412, 220], [412, 168],
+  // ── Top-right corner ──────────────────────────────────────────────────────
+  [405, 140], [388, 118], [362, 102], [330,  96],
+  // ── Top straight (east → west) ────────────────────────────────────────────
+  [285,  93], [240,  92], [195,  93], [163,  98],
+  // ── Top-left corner ───────────────────────────────────────────────────────
+  [132, 110], [108, 132], [ 93, 160],
+  // ── Left straight (north → south) ─────────────────────────────────────────
+  [ 90, 210], [ 90, 270], [ 90, 330], [ 90, 390], [ 90, 450],
+  // ── Bottom-left corner ────────────────────────────────────────────────────
+  [ 93, 482], [110, 510], [140, 525], [172, 527],
+  // ── Close loop ────────────────────────────────────────────────────────────
+  [ 82, 527],
 ];
 
 // Checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
 const CPS = [
-  { x: 200, y: 553, r: 55 },  // 0 META — main straight
-  { x: 408, y: 322, r: 52 },  // 1 back straight (right side)
-  { x: 323, y:  86, r: 55 },  // 2 top hairpin
-  { x: 162, y: 378, r: 55 },  // 3 S-curve / bottom-left entry
+  { x: 210, y: 527, r: 62 },  // 0 META — main straight
+  { x: 413, y: 310, r: 58 },  // 1 right straight mid
+  { x: 240, y:  92, r: 64 },  // 2 top straight mid
+  { x:  90, y: 330, r: 58 },  // 3 left straight mid
 ];
 
-// Starting grid [host, guest] — main straight, pointing east
+// Starting grid [host, guest] — main straight, pointing east (angle 0)
 const START = [
-  { x: 270, y: 551, a: 0 },
-  { x: 238, y: 558, a: 0 },
+  { x: 265, y: 525, a: 0 },
+  { x: 238, y: 525, a: 0 },
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -88,29 +94,26 @@ function rivalDiff(skill) {
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
 
-// Fine-grained AI navigation waypoints — Buenos Aires street circuit, 21 points CW
+// Fine-grained AI navigation waypoints — stadium oval, 18 points CW
 const AI_WAYPOINTS = [
-  [200, 551],  // 0  main straight (META zone)
-  [290, 551],  // 1  main straight east
-  [348, 543],  // 2  T1 braking zone
-  [370, 526],  // 3  T1 apex
-  [403, 478],  // 4  T2 exit / back straight entry
-  [408, 390],  // 5  back straight lower
-  [408, 300],  // 6  back straight mid (CP1)
-  [408, 210],  // 7  back straight upper
-  [405, 168],  // 8  approaching T3
-  [390, 112],  // 9  T3 entry
-  [352,  88],  // 10 T3-4 hairpin apex
-  [294,  88],  // 11 T4 section
-  [234, 112],  // 12 T4-5 exit
-  [198, 165],  // 13 T5 chicane entry
-  [168, 243],  // 14 S-curve left
-  [186, 328],  // 15 S-curve right (CP3 zone)
-  [162, 408],  // 16 S-curve exit
-  [108, 457],  // 17 T7 left
-  [ 68, 512],  // 18 T8 hairpin apex
-  [ 82, 548],  // 19 T8 exit
-  [130, 551],  // 20 re-join main straight
+  [222, 525],  // 0  main straight / META zone
+  [295, 525],  // 1  main straight east
+  [375, 523],  // 2  entering bottom-right corner
+  [416, 472],  // 3  bottom-right corner mid
+  [413, 400],  // 4  right straight lower
+  [412, 310],  // 5  right straight mid (CP1)
+  [412, 220],  // 6  right straight upper
+  [400, 140],  // 7  top-right corner entry
+  [358, 100],  // 8  top-right corner apex
+  [290,  93],  // 9  top straight east
+  [240,  92],  // 10 top straight mid (CP2)
+  [180,  94],  // 11 top straight west
+  [112, 118],  // 12 top-left corner
+  [ 91, 170],  // 13 left straight upper
+  [ 90, 330],  // 14 left straight mid (CP3)
+  [ 90, 445],  // 15 left straight lower
+  [ 96, 492],  // 16 bottom-left corner
+  [148, 525],  // 17 main straight west
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -340,7 +343,7 @@ function updateLobbyRecord() {
 }
 
 // ── Isometric projection ──────────────────────────────────────────────────────
-const ISO = { cx: 240, cy: 295, wx: 240, wy: 320, sx: 0.52, sy: 0.38 };
+const ISO = { cx: 240, cy: 330, wx: 240, wy: 310, sx: 0.55, sy: 0.55 };
 
 function project(wx, wy) {
   const dx = wx - ISO.wx, dy = wy - ISO.wy;
@@ -395,8 +398,8 @@ function drawTrack() {
   ctx.restore();
 
   // Start/finish chequered stripe — projected into isometric space
-  const pm1 = project(163, 553 - ROAD_HALF_W);
-  const pm2 = project(163, 553 + ROAD_HALF_W);
+  const pm1 = project(210, 527 - ROAD_HALF_W);
+  const pm2 = project(210, 527 + ROAD_HALF_W);
   ctx.save();
   ctx.lineWidth = 5;
   ctx.setLineDash([6, 6]);
@@ -415,7 +418,7 @@ function drawTrack() {
   ctx.fillText('META', pm1.x + 14, pm1.y - 3);
 
   // Watermark
-  const wm = project(240, 320);
+  const wm = project(240, 310);
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
   ctx.font = 'bold 10px monospace';
   ctx.fillText('CIRCUITO COLAPINTO · BUENOS AIRES', wm.x, wm.y);
@@ -752,7 +755,7 @@ function drawWin(won) {
 
 // ── Off-track vignette ────────────────────────────────────────────────────────
 function drawOffTrackVignette(alpha) {
-  const center = project(240, 320);
+  const center = project(240, 310);
   const grad = ctx.createRadialGradient(center.x, center.y, 100, center.x, center.y, 290);
   grad.addColorStop(0,   `rgba(180,0,0,0)`);
   grad.addColorStop(0.5, `rgba(180,0,0,0)`);
@@ -1065,7 +1068,7 @@ function bindTouch(id, flag) {
   const off = () => { keys[flag] = false; el.classList.remove('pressed'); };
   // Pointer Events API covers mouse + touch + stylus uniformly;
   // pointerleave fires when finger slides off the button, fixing stuck-key bug
-  el.addEventListener('pointerdown',   e => { e.preventDefault(); on();  }, { passive: false });
+  el.addEventListener('pointerdown',   e => { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch(_){} on();  }, { passive: false });
   el.addEventListener('pointerup',     e => { e.preventDefault(); off(); }, { passive: false });
   el.addEventListener('pointercancel', e => { e.preventDefault(); off(); }, { passive: false });
   el.addEventListener('pointerleave',  e => { e.preventDefault(); off(); }, { passive: false });
