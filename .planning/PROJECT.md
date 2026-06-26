@@ -22,6 +22,13 @@ Una carrera tensa y satisfactoria contra rivales con personalidad propia, en el 
 - ✓ Persistencia en localStorage: mejor vuelta personal y resultado por rival — v1
 - ✓ Controles táctiles on-screen para mobile (izquierda / derecha / freno) — v1
 - ✓ 20 rivales de F1 con skill individualizado (escala velocidad máxima de IA) — v1
+- ✓ Controles expandidos: flechas + WASD + barra espaciadora para frenar — Phase 1
+- ✓ UI responsive: escala correctamente en cualquier pantalla; canvas con devicePixelRatio para nitidez en Retina/móvil — Phase 1
+- ✓ Fix bug mobile tap: el tap no selecciona elementos DOM — Phase 1
+- ✓ Rival select en mobile: layout carousel en pantallas < 500px ancho — Phase 1
+- ✓ Botón "Copiar código" en sala multiplayer — Phase 1
+- ✓ Modal de desconexión (reemplaza `alert()`) con auto-redirect a lobby — Phase 1
+- ✓ Grilla 2026 completa: 21 rivales con equipos, números y nombres correctos — Phase 1
 
 ### Active
 
@@ -92,4 +99,4 @@ Este documento evoluciona en cada transición de fase.
 5. ¿"What This Is" sigue siendo preciso? → Actualizar si drifteó
 
 ---
-*Last updated: 2026-06-26 after v2.0 project initialization*
+*Last updated: 2026-06-26 — Phase 1 Foundation complete*
