@@ -2,12 +2,12 @@
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TOTAL_LAPS    = 3;
-const MAX_SPD_ON    = 220;   // px/s on track
-const MAX_SPD_OFF   = 55;    // px/s off track
-const AUTO_ACCEL    = 200;   // px/s² constant push (eq speed ≈ 200 px/s)
-const FRICTION_K    = 1.0;   // speed lost per second (proportional)
-const BRAKE_FORCE   = 400;   // px/s² when braking
-const TURN_RATE     = 2.8;   // rad/s max turn speed
+const MAX_SPD_ON    = 190;   // px/s on track
+const MAX_SPD_OFF   = 48;    // px/s off track
+const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
+const FRICTION_K    = 1.1;   // speed lost per second (proportional)
+const BRAKE_FORCE   = 550;   // px/s² when braking
+const TURN_RATE     = 3.8;   // rad/s max turn speed
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
@@ -614,7 +614,7 @@ function updateCar(car, dt, damage = 0) {
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   // Steering (rate scales with speed so it feels natural)
-  const turnFactor = Math.min(1, 0.3 + car.speed / MAX_SPD_ON * 0.7);
+  const turnFactor = Math.min(1, 0.5 + car.speed / MAX_SPD_ON * 0.5);
   if (keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
   if (keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
@@ -1063,12 +1063,12 @@ function bindTouch(id, flag) {
   if (!el) return;
   const on  = () => { keys[flag] = true;  el.classList.add('pressed'); };
   const off = () => { keys[flag] = false; el.classList.remove('pressed'); };
-  el.addEventListener('touchstart',  e => { e.preventDefault(); on();  }, { passive: false });
-  el.addEventListener('touchend',    e => { e.preventDefault(); off(); }, { passive: false });
-  el.addEventListener('touchcancel', e => { e.preventDefault(); off(); }, { passive: false });
-  el.addEventListener('mousedown',   on);
-  el.addEventListener('mouseup',     off);
-  el.addEventListener('mouseleave',  off);
+  // Pointer Events API covers mouse + touch + stylus uniformly;
+  // pointerleave fires when finger slides off the button, fixing stuck-key bug
+  el.addEventListener('pointerdown',   e => { e.preventDefault(); on();  }, { passive: false });
+  el.addEventListener('pointerup',     e => { e.preventDefault(); off(); }, { passive: false });
+  el.addEventListener('pointercancel', e => { e.preventDefault(); off(); }, { passive: false });
+  el.addEventListener('pointerleave',  e => { e.preventDefault(); off(); }, { passive: false });
 }
 
 bindTouch('touch-left',  'left');
