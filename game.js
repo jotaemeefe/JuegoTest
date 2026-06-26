@@ -119,6 +119,14 @@ const AI_WAYPOINTS = [
 const canvas = document.getElementById('game');
 const ctx    = canvas.getContext('2d');
 
+// ── HiDPI / Retina canvas scaling (static init — no resize listener) ──────────
+(function initCanvasDPR() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = 480 * dpr;
+  canvas.height = 640 * dpr;
+  ctx.scale(dpr, dpr);
+})();
+
 const SCR = {
   lobby:   document.getElementById('screen-lobby'),
   create:  document.getElementById('screen-create'),
