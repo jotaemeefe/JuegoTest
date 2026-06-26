@@ -7,7 +7,7 @@ const MAX_SPD_OFF   = 48;    // px/s off track
 const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
 const FRICTION_K    = 1.1;   // speed lost per second (proportional)
 const BRAKE_FORCE   = 550;   // px/s² when braking
-const TURN_RATE     = 5.5;   // rad/s max turn speed
+const TURN_RATE     = 2.8;   // rad/s max turn speed
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
@@ -618,7 +618,7 @@ function updateCar(car, dt, damage = 0) {
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   // Steering (rate scales with speed so it feels natural)
-  const turnFactor = Math.min(1, 0.3 + car.speed / MAX_SPD_ON * 0.7);
+  const turnFactor = Math.min(1, 0.45 + car.speed / MAX_SPD_ON * 0.55);
   if (keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
   if (keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
@@ -879,9 +879,9 @@ function loop(ts) {
     const onTrk = isOnTrack(local.x, local.y);
     if (!onTrk) {
       drawOffTrackVignette(0.55);
-      localDamage = Math.min(100, localDamage + 3 * dt);
+      localDamage = Math.min(100, localDamage + 1.5 * dt);
       if (wasOnTrack) {
-        localDamage = Math.min(100, localDamage + 8);
+        localDamage = Math.min(100, localDamage + 3);
         clearTimeout(shakeTimer);
         canvasWrap.classList.remove('shake');
         void canvasWrap.offsetWidth;
