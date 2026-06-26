@@ -679,7 +679,6 @@ function updateHUD() {
   prevIsFirst = isFirst;
 
   if (gameMode === 'solo' && selectedRival) {
-    const cpScore  = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
     const myP = cpScore(local), itsP = cpScore(remote);
     const diff = myP - itsP;
     let gapText, gapColor;
@@ -817,7 +816,7 @@ function loop(ts) {
       countdown--;
       if (countdown < 0) {
         phase = 'racing';
-        lapStartTime = performance.now();
+        lapStartTime = performance.now(); // BUG-04: lapStartTime correctly initialized here (verified)
         playGoSound();
       } else {
         cdTimer = 1;
@@ -990,7 +989,9 @@ function onMsg(data) {
   }
 
   if (data.type === 'finish' && !winner) {
-    // Require remote to be near the end to prevent premature finish messages
+    // BUG-02: guard prevents premature win via spoofed finish message (T-01-01 threat mitigation)
+    // remote.lap is the sender's lap — both host-receives-finish and guest-receives-finish paths
+    // check this same guard, making it symmetric for both peers.
     if (remote.lap < TOTAL_LAPS - 1) return;
     winner = 'remote';
     phase  = 'done';
@@ -1054,11 +1055,13 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft'  || e.key.toLowerCase() === 'a') keys.left  = true;
   if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
   if (e.key === 'ArrowDown'  || e.key.toLowerCase() === 's') keys.down  = true;
+  if (e.key === ' ') { e.preventDefault(); keys.down = true; }  // CTRL-03: spacebar brake (preventDefault stops page scroll)
 });
 window.addEventListener('keyup', e => {
   if (e.key === 'ArrowLeft'  || e.key.toLowerCase() === 'a') keys.left  = false;
   if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
   if (e.key === 'ArrowDown'  || e.key.toLowerCase() === 's') keys.down  = false;
+  if (e.key === ' ') keys.down = false;  // CTRL-03: spacebar brake release
 });
 
 // ── Input: touch buttons ───────────────────────────────────────────────────────
@@ -1209,7 +1212,7 @@ document.getElementById('btn-restart').addEventListener('click', () => {
       Net.send({ type: 'restart' });
     }
   } else {
-    resetGame(); beginCountdown();
+    beginCountdown();
   }
   startResultPoll();
 });
