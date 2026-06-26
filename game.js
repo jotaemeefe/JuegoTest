@@ -1156,6 +1156,7 @@ document.getElementById('btn-cancel-join').addEventListener('click', () => {
 });
 
 function buildRivalGrid() {
+  let carouselIdx = 0;
   const grid = document.querySelector('.rival-grid');
   grid.innerHTML = '';
   RIVALS.forEach((r, idx) => {
@@ -1195,6 +1196,41 @@ function buildRivalGrid() {
       startResultPoll();
     });
   });
+
+  // Carousel state management (resets to 0 on each buildRivalGrid() call)
+  function updateCarousel() {
+    const narrow = window.innerWidth < 500;
+    const cards = document.querySelectorAll('.rival-card');
+    const indicator = document.getElementById('carousel-indicator');
+    if (!narrow) {
+      // Desktop: remove carousel-active (all cards show via CSS grid)
+      cards.forEach(c => c.classList.remove('carousel-active'));
+      if (indicator) indicator.textContent = '';
+      return;
+    }
+    // Mobile: show only the card at carouselIdx
+    cards.forEach((c, i) => c.classList.toggle('carousel-active', i === carouselIdx));
+    if (indicator) indicator.textContent = `${carouselIdx + 1} / ${cards.length}`;
+  }
+
+  const prevBtn = document.getElementById('rival-prev');
+  const nextBtn = document.getElementById('rival-next');
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      const count = document.querySelectorAll('.rival-card').length;
+      carouselIdx = (carouselIdx - 1 + count) % count;
+      updateCarousel();
+    };
+  }
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      const count = document.querySelectorAll('.rival-card').length;
+      carouselIdx = (carouselIdx + 1) % count;
+      updateCarousel();
+    };
+  }
+
+  updateCarousel();
 }
 
 document.getElementById('btn-solo').addEventListener('click', () => {
