@@ -235,46 +235,42 @@ canvas {
 
 /* ── Touch controls ───────────────────────────────────────── */
 .touch-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  padding: 0 4px 6px;
-  pointer-events: none;
+  align-items: stretch;
+  width: 100%;
+  max-width: 480px;
+  gap: 4px;
+  padding: 4px 4px 0;
 }
 
 .touch-btn {
-  pointer-events: all;
-  background: rgba(0, 48, 135, 0.5);
-  border: 2px solid rgba(0,160,233,0.35);
+  background: rgba(0, 48, 135, 0.55);
+  border: 2px solid rgba(0,160,233,0.4);
   border-radius: 10px;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255,255,255,0.9);
   font-weight: 900;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
   transition: background 0.08s;
+  height: 68px;
 }
 .touch-btn:active,
 .touch-btn.pressed {
-  background: rgba(0, 160, 233, 0.5);
+  background: rgba(0, 160, 233, 0.55);
 }
 
 #touch-left,
 #touch-right {
-  width: 40%;
-  height: 72px;
+  flex: 2;
   font-size: 1.8rem;
 }
 
 #touch-brake {
-  width: 20%;
-  height: 72px;
-  font-size: 0.85rem;
+  flex: 1;
+  font-size: 0.8rem;
   letter-spacing: 1px;
 }
 

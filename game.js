@@ -769,10 +769,22 @@ function loop(ts) {
       });
     }
 
-    // Car-car collision (solo only — no physics on interpolated remote in multi)
-    if (gameMode === 'solo' && resolveCarCollision(local, remote)) {
-      localDamage = Math.min(100, localDamage + 18);
-      playCollisionSound();
+    // Car-car collision (solo only)
+    if (gameMode === 'solo') {
+      const dx = remote.x - local.x, dy = remote.y - local.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = dx / dist, ny = dy / dist;
+      // Relative approach speed along collision normal
+      const vLocal  = Math.cos(local.angle)  * local.speed  * nx + Math.sin(local.angle)  * local.speed  * ny;
+      const vRemote = Math.cos(remote.angle) * remote.speed * nx + Math.sin(remote.angle) * remote.speed * ny;
+      if (resolveCarCollision(local, remote)) {
+        const relV = Math.abs(vLocal - vRemote);
+        // Player takes less damage when they are the one being rear-ended
+        const playerIsHitter = vLocal > vRemote + 10;
+        const dmg = Math.min(22, 4 + relV * 0.06);
+        localDamage = Math.min(100, localDamage + (playerIsHitter ? dmg : dmg * 0.35));
+        playCollisionSound();
+      }
     }
 
     // Engine pitch tracks speed
