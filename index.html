@@ -31,6 +31,8 @@
       <h2>SALA CREADA</h2>
       <p class="sub">Comparte este código con tu rival:</p>
       <div class="room-code" id="room-code-display">------</div>
+      <button id="btn-copy-code" class="btn btn-secondary">Copiar código</button>
+      <div id="copy-toast" class="copy-toast" aria-live="polite"></div>
       <p class="waiting-msg" id="waiting-msg">Esperando oponente…</p>
       <div class="spinner" id="spinner"></div>
       <button id="btn-cancel-create" class="btn btn-ghost">Cancelar</button>
@@ -90,6 +92,11 @@
       </div>
       <button id="btn-restart" class="btn btn-primary">REVANCHA</button>
       <button id="btn-menu" class="btn btn-ghost">MENÚ PRINCIPAL</button>
+    </div>
+
+    <div id="disconnect-modal" class="disconnect-modal" hidden>
+      <p>El rival se desconectó.</p>
+      <p>Volviendo al menú…</p>
     </div>
 
   </div>

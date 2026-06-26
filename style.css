@@ -428,3 +428,36 @@ canvas {
   .carousel-btn { display: none; }
   .carousel-indicator { display: none; }
 }
+
+/* ── Copy code toast (UI-05) ─────────────────────────────────────────────── */
+.copy-toast {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #10b981;
+  min-height: 20px;
+  text-align: center;
+}
+.copy-toast.visible { opacity: 1; }
+
+/* ── Disconnect modal overlay (UI-06) ────────────────────────────────────── */
+.disconnect-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(5, 10, 26, 0.92);
+  z-index: 9999;
+  color: #f8fafc;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 24px;
+}
+.disconnect-modal[hidden] { display: none; }
