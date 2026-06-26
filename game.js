@@ -43,9 +43,10 @@ const CPS = [
 ];
 
 // Starting grid [host, guest] — main straight, pointing east (angle 0)
+// Positioned well west of the first corner so player has time to react
 const START = [
-  { x: 265, y: 525, a: 0 },
-  { x: 238, y: 525, a: 0 },
+  { x: 185, y: 525, a: 0 },
+  { x: 158, y: 525, a: 0 },
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -617,7 +618,7 @@ function updateCar(car, dt, damage = 0) {
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   // Steering (rate scales with speed so it feels natural)
-  const turnFactor = Math.min(1, 0.5 + car.speed / MAX_SPD_ON * 0.5);
+  const turnFactor = Math.min(1, 0.3 + car.speed / MAX_SPD_ON * 0.7);
   if (keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
   if (keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
