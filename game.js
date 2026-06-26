@@ -3,16 +3,16 @@
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TOTAL_LAPS    = 3;
 const MAX_SPD_ON    = 190;   // px/s on track
-const MAX_SPD_OFF   = 48;    // px/s off track
+const MAX_SPD_OFF   = 72;    // px/s off track (gradual, not abrupt)
 const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
 const FRICTION_K    = 1.1;   // speed lost per second (proportional)
 const BRAKE_FORCE   = 550;   // px/s² when braking
-const TURN_RATE     = 2.8;   // rad/s max turn speed
+const TURN_RATE     = 3.5;   // rad/s — min radius at eq speed = 145/(3.5×0.87)≈48px < ROAD_HALF_W=60
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
 // Stadium oval — Buenos Aires (polyline spine, 35 points)
-const ROAD_HALF_W = 42;
+const ROAD_HALF_W = 60;
 const ROAD_SPINE = [
   // ── Main straight (west end → east) ───────────────────────────────────────
   [ 82, 527], [152, 527], [222, 527], [292, 527], [362, 527],
@@ -36,10 +36,10 @@ const ROAD_SPINE = [
 
 // Checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
 const CPS = [
-  { x: 210, y: 527, r: 62 },  // 0 META — main straight
-  { x: 413, y: 310, r: 58 },  // 1 right straight mid
-  { x: 240, y:  92, r: 64 },  // 2 top straight mid
-  { x:  90, y: 330, r: 58 },  // 3 left straight mid
+  { x: 210, y: 527, r: 80 },  // 0 META — main straight
+  { x: 413, y: 310, r: 76 },  // 1 right straight mid
+  { x: 240, y:  92, r: 82 },  // 2 top straight mid
+  { x:  90, y: 330, r: 76 },  // 3 left straight mid
 ];
 
 // Starting grid [host, guest] — main straight, pointing east (angle 0)
@@ -628,7 +628,7 @@ function updateCar(car, dt, damage = 0) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_WP_REACH = 28; // px radius to advance to next waypoint
+const AI_WP_REACH = 45; // px radius to advance to next waypoint
 
 function updateAI(car, dt) {
   if (car.finished) return;
