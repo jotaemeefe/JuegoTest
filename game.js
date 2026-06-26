@@ -592,8 +592,6 @@ function checkCheckpoints(car) {
             updateLobbyRecord();
             addFloatingText(`⚡ ¡VUELA, FRANCO!  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 280, 14);
           }
-        } else {
-          lapStartTime = performance.now();
         }
       }
       car.lap++;
