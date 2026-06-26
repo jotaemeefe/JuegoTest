@@ -47,9 +47,9 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 
 ### Controles
 
-- [ ] **CTRL-01**: Agregar soporte de flechas del teclado (←→ para dirección, ↓ para frenar) además de los controles A/D existentes
-- [ ] **CTRL-02**: Agregar soporte de WASD (A/D dirección, S frenar) si no están ya mapeados
-- [ ] **CTRL-03**: Mapear barra espaciadora como freno adicional
+- [x] **CTRL-01**: Agregar soporte de flechas del teclado (←→ para dirección, ↓ para frenar) además de los controles A/D existentes — verified already implemented in game.js:1054-1056 (01-01)
+- [x] **CTRL-02**: Agregar soporte de WASD (A/D dirección, S frenar) si no están ya mapeados — verified already implemented in game.js:1054-1056 (01-01)
+- [x] **CTRL-03**: Mapear barra espaciadora como freno adicional — added to keydown/keyup listeners with e.preventDefault() (01-01)
 
 ### UI / UX
 
@@ -71,15 +71,15 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 
 ### Grilla 2026
 
-- [ ] **GRID-01**: Actualizar el array `RIVALS` con los 20 pilotos de la temporada 2026 de F1: nombres, equipos, números de auto y valores de skill ajustados al rendimiento actual de cada piloto
-- [ ] **GRID-02**: Actualizar colores de equipo (`body`, `accent`) en el array `RIVALS` para reflejar las libreas 2026 de cada equipo
+- [x] **GRID-01**: Actualizar el array `RIVALS` con los 21 pilotos de la temporada 2026 de F1: nombres, equipos, números de auto y valores de skill ajustados al rendimiento actual de cada piloto (01-01)
+- [x] **GRID-02**: Actualizar colores de equipo (`body`, `accent`) en el array `RIVALS` para reflejar las libreas 2026 de cada equipo — Audi updated from Kick Sauber green; Cadillac colors [ASSUMED] (01-01)
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Eliminar el `resetGame()` duplicado en `btn-restart` del host (línea ~1212) — `beginCountdown()` ya lo llama internamente
-- [ ] **BUG-02**: Agregar guard de vueltas en el guest al recibir mensaje `finish`: `if (remote.lap < TOTAL_LAPS - 1) return;` para prevenir victorias prematuras
-- [ ] **BUG-03**: Consolidar la lambda `cpScore` duplicada en `updateHUD()` (líneas 673 y 682) en una única definición al inicio de la función
-- [ ] **BUG-04**: Fix bug del lap timer: `lapStartTime` debe inicializarse en el momento en que arranca la carrera, no al primer cruce de CP0, para que la vuelta 1 se mida correctamente
+- [x] **BUG-01**: Eliminar el `resetGame()` duplicado en `btn-restart` del host (línea ~1212) — fixed (01-01)
+- [x] **BUG-02**: Agregar guard de vueltas en el guest al recibir mensaje `finish`: `if (remote.lap < TOTAL_LAPS - 1) return;` — verified already present and symmetric (01-01)
+- [x] **BUG-03**: Consolidar la lambda `cpScore` duplicada en `updateHUD()` (líneas 673 y 682) en una única definición al inicio de la función — duplicate removed (01-01)
+- [x] **BUG-04**: Fix bug del lap timer: `lapStartTime` debe inicializarse en el momento en que arranca la carrera — verified correctly set at line 820 (01-01)
 
 ---
 

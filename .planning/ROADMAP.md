@@ -29,7 +29,7 @@
 5. The multiplayer room screen shows a "Copiar código" button that copies the code and shows a "Copiado!" toast; peer disconnection shows an in-game modal instead of a blocking `alert()`.
 **Plans:** 4 plans
 Plans:
-- [ ] 01-01-PLAN.md — Bug fixes (BUG-01–04), spacebar brake (CTRL-03), 2026 RIVALS array (GRID-01, GRID-02)
+- [x] 01-01-PLAN.md — Bug fixes (BUG-01–04), spacebar brake (CTRL-03), 2026 RIVALS array (GRID-01, GRID-02)
 - [ ] 01-02-PLAN.md — Responsive layout verification (UI-01), mobile text-select fix (UI-02), DPR canvas scaling (UI-03)
 - [ ] 01-03-PLAN.md — Mobile rival carousel prev/next (UI-04)
 - [ ] 01-04-PLAN.md — Copy room code button + toast (UI-05), disconnect modal (UI-06)
@@ -67,7 +67,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Planned | - |
+| 1. Foundation | 1/4 | In progress | - |
 | 2. Monaco + 4 Cars | 0/? | Not started | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
