@@ -12,7 +12,7 @@ const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
 // Street circuit — Buenos Aires (polyline spine, 17 points)
-const ROAD_HALF_W = 30;
+const ROAD_HALF_W = 42;
 const ROAD_SPINE = [
   // ── Main straight (east) + Turn 1 braking zone ────────────────────────────
   [ 82, 553], [322, 553], [368, 524], [403, 476],
@@ -172,6 +172,7 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
 let wasOnTrack      = true;
+let prevIsFirst     = true; // tracks position for overtake celebration
 let shakeTimer      = null;
 let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 
@@ -551,8 +552,8 @@ function resolveCarCollision(a, b) {
   const bVn = (Math.cos(b.angle) * nx + Math.sin(b.angle) * ny) * b.speed;
   if (bVn - aVn >= 0) return true;
   const relV = aVn - bVn;
-  a.speed = Math.max(0, a.speed - relV * 0.4);
-  b.speed = Math.max(0, b.speed - relV * 0.25);
+  a.speed = Math.max(0, a.speed - relV * 0.35);
+  b.speed = Math.max(0, b.speed - relV * 0.35);
   return true;
 }
 
@@ -578,7 +579,7 @@ function checkCheckpoints(car) {
             recordFlashUntil = performance.now() + 2000;
             localStorage.setItem('cr_best_lap_ms', bestLapMs);
             updateLobbyRecord();
-            addFloatingText(`⚡ VUELTA RÁPIDA  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 280, 14);
+            addFloatingText(`⚡ ¡VUELA, FRANCO!  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 280, 14);
           }
         } else {
           lapStartTime = performance.now();
@@ -623,7 +624,7 @@ function updateCar(car, dt, damage = 0) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_WP_REACH = 48; // px radius to advance to next waypoint
+const AI_WP_REACH = 28; // px radius to advance to next waypoint
 
 function updateAI(car, dt) {
   if (car.finished) return;
@@ -651,7 +652,8 @@ function updateAI(car, dt) {
 
   // Brake before sharp corners
   const braking  = absDiff > 0.65;
-  const aiMaxSpd = MAX_SPD_ON * skill * (braking ? 0.60 : 1.0);
+  const lapBonus = 1 + Math.min(remote.lap, 2) * 0.04; // +4% per completed lap, max +8%
+  const aiMaxSpd = MAX_SPD_ON * skill * lapBonus * (braking ? 0.60 : 1.0);
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;
@@ -670,7 +672,12 @@ function updateHUD() {
 
   // nextCP=0 means approaching finish line — worth CPS.length to avoid false 2nd
   const cpScore = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
-  hudPos.textContent = cpScore(local) >= cpScore(remote) ? '1°' : '2°';
+  const isFirst = cpScore(local) >= cpScore(remote);
+  hudPos.textContent = isFirst ? '1°' : '2°';
+
+  // Overtake celebration
+  if (isFirst && !prevIsFirst) addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+  prevIsFirst = isFirst;
 
   if (gameMode === 'solo' && selectedRival) {
     const cpScore  = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
@@ -844,10 +851,10 @@ function loop(ts) {
       const vRemote = Math.cos(remote.angle) * remote.speed * nx + Math.sin(remote.angle) * remote.speed * ny;
       if (resolveCarCollision(local, remote)) {
         const relV = Math.abs(vLocal - vRemote);
-        // Player takes less damage when they are the one being rear-ended
-        const playerIsHitter = vLocal > vRemote + 10;
-        const dmg = Math.min(22, 4 + relV * 0.06);
-        localDamage = Math.min(100, localDamage + (playerIsHitter ? dmg : dmg * 0.35));
+        // Threshold 5 (not 10) to better catch side impacts as CPU-initiated
+        const playerIsAggressor = vLocal > vRemote + 5;
+        const baseDmg = Math.min(18, 3 + relV * 0.05);
+        localDamage = Math.min(100, localDamage + (playerIsAggressor ? baseDmg : baseDmg * 0.15));
         playCollisionSound();
       }
     }
@@ -1026,6 +1033,7 @@ function resetGame() {
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
+  prevIsFirst        = true;
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }
