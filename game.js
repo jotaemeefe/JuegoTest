@@ -3,34 +3,43 @@
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TOTAL_LAPS    = 3;
 const MAX_SPD_ON    = 220;   // px/s on track
-const MAX_SPD_OFF   = 60;    // px/s off track
-const AUTO_ACCEL    = 160;   // px/s² constant push forward
-const FRICTION_K    = 1.3;   // speed lost per second (proportional)
-const BRAKE_FORCE   = 450;   // px/s² when braking
-const TURN_RATE     = 2.6;   // rad/s max turn speed
+const MAX_SPD_OFF   = 55;    // px/s off track
+const AUTO_ACCEL    = 200;   // px/s² constant push (eq speed ≈ 200 px/s)
+const FRICTION_K    = 1.0;   // speed lost per second (proportional)
+const BRAKE_FORCE   = 400;   // px/s² when braking
+const TURN_RATE     = 2.8;   // rad/s max turn speed
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
-// Street circuit — Buenos Aires layout (polyline spine)
+// Street circuit — Buenos Aires (polyline spine, 17 points)
 const ROAD_HALF_W = 30;
 const ROAD_SPINE = [
-  [240, 580], [400, 580], [440, 540], [440, 120],
-  [400,  80], [120,  80], [ 80, 110], [ 40, 120],
-  [ 40, 540], [ 80, 580], [240, 580],
+  // ── Main straight (east) + Turn 1 braking zone ────────────────────────────
+  [ 82, 553], [322, 553], [368, 524], [403, 476],
+  // ── Back straight (north) ─────────────────────────────────────────────────
+  [408, 300], [408, 168],
+  // ── Top hairpin complex — Turns 3-4 ───────────────────────────────────────
+  [390, 110], [352,  86], [294,  86], [234, 110],
+  // ── Technical S-curve section — Turns 5-6 ────────────────────────────────
+  [198, 164], [168, 242], [186, 328],
+  // ── Bottom-left hairpin — Turns 7-8 ──────────────────────────────────────
+  [162, 408], [108, 456], [ 68, 512],
+  // ── Return to main straight ───────────────────────────────────────────────
+  [ 82, 553],
 ];
 
-// Checkpoints {x,y,r} — must be hit in order; CP0 = finish line
+// Checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
 const CPS = [
-  { x: 240, y: 580, r: 55 },  // 0 META (bottom straight)
-  { x: 440, y: 320, r: 55 },  // 1 right straight
-  { x: 240, y:  80, r: 55 },  // 2 top straight
-  { x:  40, y: 320, r: 55 },  // 3 left straight
+  { x: 200, y: 553, r: 55 },  // 0 META — main straight
+  { x: 408, y: 322, r: 52 },  // 1 back straight (right side)
+  { x: 323, y:  86, r: 55 },  // 2 top hairpin
+  { x: 162, y: 378, r: 55 },  // 3 S-curve / bottom-left entry
 ];
 
-// Starting grid [host, guest] — bottom straight, pointing east
+// Starting grid [host, guest] — main straight, pointing east
 const START = [
-  { x: 200, y: 572, a: 0 },
-  { x: 165, y: 582, a: 0 },
+  { x: 270, y: 551, a: 0 },
+  { x: 238, y: 558, a: 0 },
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -79,22 +88,29 @@ function rivalDiff(skill) {
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
 
-// Fine-grained AI navigation waypoints — follows road spine, CCW from bottom straight
+// Fine-grained AI navigation waypoints — Buenos Aires street circuit, 21 points CW
 const AI_WAYPOINTS = [
-  [320, 572],  // 0  bottom straight →
-  [415, 572],  // 1  approaching SE corner
-  [440, 450],  // 2  right side ↑
-  [440, 320],  // 3  right straight mid
-  [440, 190],  // 4  right side approaching NE corner
-  [415,  90],  // 5  NE corner
-  [300,  82],  // 6  top straight ←
-  [160,  82],  // 7  top straight ←
-  [ 88,  95],  // 8  NW corner
-  [ 42, 200],  // 9  left side ↓
-  [ 42, 320],  // 10 left straight mid
-  [ 42, 480],  // 11 left side approaching SW
-  [ 88, 570],  // 12 SW corner
-  [160, 572],  // 13 bottom straight returning →
+  [200, 551],  // 0  main straight (META zone)
+  [290, 551],  // 1  main straight east
+  [348, 543],  // 2  T1 braking zone
+  [370, 526],  // 3  T1 apex
+  [403, 478],  // 4  T2 exit / back straight entry
+  [408, 390],  // 5  back straight lower
+  [408, 300],  // 6  back straight mid (CP1)
+  [408, 210],  // 7  back straight upper
+  [405, 168],  // 8  approaching T3
+  [390, 112],  // 9  T3 entry
+  [352,  88],  // 10 T3-4 hairpin apex
+  [294,  88],  // 11 T4 section
+  [234, 112],  // 12 T4-5 exit
+  [198, 165],  // 13 T5 chicane entry
+  [168, 243],  // 14 S-curve left
+  [186, 328],  // 15 S-curve right (CP3 zone)
+  [162, 408],  // 16 S-curve exit
+  [108, 457],  // 17 T7 left
+  [ 68, 512],  // 18 T8 hairpin apex
+  [ 82, 548],  // 19 T8 exit
+  [130, 551],  // 20 re-join main straight
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -158,6 +174,11 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 let wasOnTrack      = true;
 let shakeTimer      = null;
 let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
+
+// Floating feedback
+let floatingTexts      = [];  // [{text,color,x,y,alpha,vy,size}]
+let cpFlash            = 0;   // seconds remaining of checkpoint flash
+let damageWarningShown = 0;   // last damage% when warning was shown
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -354,16 +375,16 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish chequered stripe
-  const fxL = 207, fxR = 280, fy = 580, sw = 8;
-  for (let i = 0; fxL + i * sw < fxR; i++) {
+  // Start/finish chequered stripe — vertical, perpendicular to main straight (east-west)
+  const flX = 163, flYT = 553 - ROAD_HALF_W, flYB = 553 + ROAD_HALF_W;
+  for (let i = 0, y = flYT; y < flYB; y += 8, i++) {
     ctx.fillStyle = i % 2 === 0 ? '#f8fafc' : '#111827';
-    ctx.fillRect(fxL + i * sw, fy - 4, sw, 8);
+    ctx.fillRect(flX - 3, y, 6, 8);
   }
-  ctx.fillStyle = 'rgba(248,250,252,0.7)';
+  ctx.fillStyle = 'rgba(248,250,252,0.75)';
   ctx.font = 'bold 7px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('META', (fxL + fxR) / 2, fy - 7);
+  ctx.fillText('META', flX, flYT - 3);
 
   // Watermark
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
@@ -478,16 +499,25 @@ function checkCheckpoints(car) {
   const dx = car.x - cp.x, dy = car.y - cp.y;
   if (dx * dx + dy * dy < cp.r * cp.r) {
     if (car.nextCP === 0) {
-      // Record lap time for local player
-      if (car === local && lapStartTime > 0) {
-        lastLapMs = performance.now() - lapStartTime;
-        lapStartTime = performance.now();
-        if (lastLapMs < bestLapMs) {
-          bestLapMs = lastLapMs;
-          sessionRecord = true;
-          recordFlashUntil = performance.now() + 2000;
-          localStorage.setItem('cr_best_lap_ms', bestLapMs);
-          updateLobbyRecord();
+      if (car === local) {
+        cpFlash = 0.30;
+        if (lapStartTime > 0) {
+          lastLapMs = performance.now() - lapStartTime;
+          lapStartTime = performance.now();
+          const lapNum = car.lap + 1;
+          if (lapNum <= TOTAL_LAPS) {
+            addFloatingText(`VUELTA ${lapNum} / ${TOTAL_LAPS}`, '#f8fafc', 240, 250, 22);
+          }
+          if (lastLapMs < bestLapMs) {
+            bestLapMs = lastLapMs;
+            sessionRecord = true;
+            recordFlashUntil = performance.now() + 2000;
+            localStorage.setItem('cr_best_lap_ms', bestLapMs);
+            updateLobbyRecord();
+            addFloatingText(`⚡ VUELTA RÁPIDA  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 280, 14);
+          }
+        } else {
+          lapStartTime = performance.now();
         }
       }
       car.lap++;
@@ -495,6 +525,8 @@ function checkCheckpoints(car) {
         car.finished = true;
         return;
       }
+    } else if (car === local) {
+      cpFlash = 0.12;
     }
     car.nextCP = (car.nextCP + 1) % CPS.length;
   }
@@ -577,10 +609,22 @@ function updateHUD() {
   hudPos.textContent = cpScore(local) >= cpScore(remote) ? '1°' : '2°';
 
   if (gameMode === 'solo' && selectedRival) {
-    const tag = selectedRival.name.split(' ').pop().substring(0, 3).toUpperCase();
-    hudRole.textContent        = `VS ${tag}`;
-    hudRole.style.color        = selectedRival.accent;
-    hudRole.style.background   = selectedRival.body + '99';
+    const cpScore  = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
+    const myP = cpScore(local), itsP = cpScore(remote);
+    const diff = myP - itsP;
+    let gapText, gapColor;
+    if (Math.abs(diff) < 0.5) {
+      const dist = Math.sqrt((local.x - remote.x) ** 2 + (local.y - remote.y) ** 2);
+      gapText  = `~${(dist / 190).toFixed(1)}s`;
+      gapColor = '#94a3b8';
+    } else {
+      const secs = (Math.abs(diff) * 1.4).toFixed(1);
+      gapText  = diff > 0 ? `+${secs}s` : `-${secs}s`;
+      gapColor = diff > 0 ? '#10b981' : '#ef4444';
+    }
+    hudRole.textContent        = gapText;
+    hudRole.style.color        = gapColor;
+    hudRole.style.background   = 'rgba(0,0,0,0.45)';
     hudRole.style.borderRadius = '4px';
     hudRole.style.padding      = '1px 5px';
   } else {
@@ -596,14 +640,20 @@ function drawCountdown(val) {
   ctx.fillStyle = 'rgba(5,10,26,0.72)';
   ctx.fillRect(0, 0, 480, 640);
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#f8fafc';
   if (val > 0) {
+    ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 120px system-ui';
-    ctx.fillText(String(val), 240, 360);
+    ctx.fillText(String(val), 240, 370);
+    ctx.font = 'bold 13px monospace';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText('CIRCUITO COLAPINTO', 240, 440);
+    ctx.fillStyle = '#00a0e9';
+    ctx.font = '11px monospace';
+    ctx.fillText('BUENOS AIRES · ARGENTINA', 240, 458);
   } else {
     ctx.font = 'bold 72px system-ui';
     ctx.fillStyle = '#fbbf24';
-    ctx.fillText('¡GO!', 240, 360);
+    ctx.fillText('¡GO!', 240, 370);
   }
 }
 
@@ -654,6 +704,29 @@ function drawDamageBar(damage) {
   ctx.fillStyle = `rgb(${r},${g},0)`;
   ctx.fillRect(x, y + 1, barW * ratio, barH);
   ctx.textAlign = 'left';
+}
+
+// ── Floating text feedback ────────────────────────────────────────────────────
+function addFloatingText(text, color, x = 240, y = 260, size = 16) {
+  floatingTexts.push({ text, color, x, y, alpha: 1.0, vy: -50, size });
+}
+
+function drawFloatingTexts(dt) {
+  if (!floatingTexts.length) return;
+  ctx.save();
+  ctx.textAlign = 'center';
+  floatingTexts = floatingTexts.filter(ft => {
+    ft.y    += ft.vy * dt;
+    ft.alpha -= dt * 0.9;
+    if (ft.alpha <= 0) return false;
+    ctx.globalAlpha = Math.max(0, ft.alpha);
+    ctx.font        = `bold ${ft.size}px system-ui`;
+    ctx.fillStyle   = ft.color;
+    ctx.fillText(ft.text, ft.x, ft.y);
+    return true;
+  });
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 // ── Main game loop ─────────────────────────────────────────────────────────────
@@ -729,6 +802,27 @@ function loop(ts) {
       }
     }
     wasOnTrack = onTrk;
+
+    // Checkpoint flash (green border sweep)
+    if (cpFlash > 0) {
+      cpFlash -= dt;
+      const a = Math.min(1, cpFlash * 6);
+      ctx.strokeStyle = `rgba(16,185,129,${a * 0.7})`;
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, 470, 630);
+    }
+
+    // Floating text overlays
+    drawFloatingTexts(dt);
+
+    // Damage warning at 60% / 80%
+    if (localDamage >= 60 && damageWarningShown < 60) {
+      damageWarningShown = 60;
+      addFloatingText('⚠ DAÑO ALTO', '#f97316', 240, 200, 18);
+    } else if (localDamage >= 80 && damageWarningShown < 80) {
+      damageWarningShown = 80;
+      addFloatingText('⛔ COCHE CRÍTICO', '#ef4444', 240, 200, 20);
+    }
 
     // Damage bar drawn last so it's always on top
     drawDamageBar(localDamage);
@@ -850,8 +944,11 @@ function resetGame() {
   canvasWrap.classList.remove('shake');
   hudTimer.textContent = '0:00.0';
   hudTimer.classList.remove('record');
-  localDamage = 0;
-  aiWpIdx     = 0;
+  localDamage        = 0;
+  aiWpIdx            = 0;
+  floatingTexts      = [];
+  cpFlash            = 0;
+  damageWarningShown = 0;
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }

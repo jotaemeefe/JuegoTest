@@ -84,7 +84,7 @@ h1 span { color: var(--sky); font-size: 2rem; }
 .btn-secondary {
   background: transparent;
   color: var(--white);
-  border: 2px solid #334155;
+  border: 2px solid #4a6490;
 }
 .btn-secondary:hover { border-color: var(--sky); color: var(--sky); }
 
@@ -272,9 +272,9 @@ canvas {
 }
 
 #touch-brake {
-  width: 16%;
-  height: 54px;
-  font-size: 0.65rem;
+  width: 20%;
+  height: 72px;
+  font-size: 0.85rem;
   letter-spacing: 1px;
 }
 
@@ -318,8 +318,8 @@ canvas {
 .rival-card {
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid #1e293b;
+  background: rgba(15, 30, 61, 0.85);
+  border: 2px solid #2d4a7a;
   border-radius: 10px;
   cursor: pointer;
   overflow: hidden;
@@ -330,7 +330,7 @@ canvas {
   user-select: none;
 }
 .rival-card.show    { opacity: 1; transform: translateY(0); }
-.rival-card:hover   { border-color: var(--sky); background: rgba(0,160,233,0.09); }
+.rival-card:hover   { border-color: var(--sky); background: rgba(0, 80, 150, 0.25); }
 .rival-card:active  { transform: scale(0.97); }
 
 .rival-band {
