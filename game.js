@@ -6,7 +6,7 @@ const MAX_SPD_ON    = 190;   // px/s on track
 const MAX_SPD_OFF   = 72;    // px/s off track (gradual, not abrupt)
 const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
 const FRICTION_K    = 1.1;   // speed lost per second (proportional)
-const BRAKE_FORCE   = 550;   // px/s² when braking
+const BRAKE_FORCE   = 350;   // px/s² when braking
 const TURN_RATE     = 3.5;   // rad/s — min radius at eq speed = 145/(3.5×0.87)≈48px < ROAD_HALF_W=60
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
@@ -54,38 +54,32 @@ const START = [
 const CAR_STYLE_HOST = { body: '#0090d0', stripe: '#f569b7', cockpit: '#001f3f', helmet: '#74c0fc', num: '43' };
 
 // Full 2025 F1 grid — body/accent = team livery, helmet = driver's signature helmet colour
-// skill = AI speed factor (1.0 = same max speed as player)
+// skill = AI speed factor (1.0 = same max speed as player) — sorted easiest → hardest
 const RIVALS = [
-  // ── Red Bull Racing ──────────────────────────────────────────────────────────
-  { name:'Max Verstappen',    team:'Red Bull Racing',   num:'1',  body:'#1d2f6a', accent:'#ffd700', helmet:'#cc1100', skill:0.96 },
-  { name:'Yuki Tsunoda',      team:'Red Bull Racing',   num:'22', body:'#1d2f6a', accent:'#ffd700', helmet:'#ef4444', skill:0.88 },
-  // ── Scuderia Ferrari ─────────────────────────────────────────────────────────
-  { name:'Charles Leclerc',   team:'Scuderia Ferrari',  num:'16', body:'#cc0000', accent:'#f8fafc', helmet:'#cc0000', skill:0.92 },
-  { name:'Lewis Hamilton',    team:'Scuderia Ferrari',  num:'44', body:'#cc0000', accent:'#f8fafc', helmet:'#1a1a1a', skill:0.94 },
-  // ── McLaren F1 Team ──────────────────────────────────────────────────────────
-  { name:'Lando Norris',      team:'McLaren F1 Team',   num:'4',  body:'#ff6b00', accent:'#1a1a1a', helmet:'#ff6b00', skill:0.93 },
-  { name:'Oscar Piastri',     team:'McLaren F1 Team',   num:'81', body:'#ff6b00', accent:'#ffd700', helmet:'#ffd700', skill:0.89 },
-  // ── Mercedes-AMG Petronas ────────────────────────────────────────────────────
-  { name:'George Russell',    team:'Mercedes-AMG',      num:'63', body:'#1e293b', accent:'#00d2be', helmet:'#ffd700', skill:0.90 },
-  { name:'Kimi Antonelli',    team:'Mercedes-AMG',      num:'12', body:'#1e293b', accent:'#00d2be', helmet:'#cc0000', skill:0.84 },
-  // ── Aston Martin ─────────────────────────────────────────────────────────────
-  { name:'Fernando Alonso',   team:'Aston Martin',      num:'14', body:'#005540', accent:'#c0a030', helmet:'#1a1a1a', skill:0.91 },
-  { name:'Lance Stroll',      team:'Aston Martin',      num:'18', body:'#005540', accent:'#c0a030', helmet:'#1d4ed8', skill:0.81 },
-  // ── BWT Alpine F1 ────────────────────────────────────────────────────────────
-  { name:'Pierre Gasly',      team:'BWT Alpine',        num:'10', body:'#0090d0', accent:'#f569b7', helmet:'#1565c0', skill:0.87 },
-  { name:'Franco Colapinto',  team:'BWT Alpine',        num:'43', body:'#0090d0', accent:'#f569b7', helmet:'#74c0fc', skill:0.85 },
-  // ── Williams Racing ──────────────────────────────────────────────────────────
-  { name:'Alexander Albon',   team:'Williams Racing',   num:'23', body:'#003087', accent:'#e8f4ff', helmet:'#cc0000', skill:0.86 },
-  { name:'Carlos Sainz',      team:'Williams Racing',   num:'55', body:'#003087', accent:'#e8f4ff', helmet:'#ffd700', skill:0.88 },
-  // ── MoneyGram Haas F1 ────────────────────────────────────────────────────────
-  { name:'Esteban Ocon',      team:'Haas F1 Team',      num:'31', body:'#1c1c1c', accent:'#cc0000', helmet:'#1d4ed8', skill:0.85 },
+  // ── MEDIO ────────────────────────────────────────────────────────────────────
   { name:'Oliver Bearman',    team:'Haas F1 Team',      num:'87', body:'#1c1c1c', accent:'#cc0000', helmet:'#cc0000', skill:0.79 },
-  // ── Kick Sauber ──────────────────────────────────────────────────────────────
-  { name:'Nico Hülkenberg',   team:'Kick Sauber',       num:'27', body:'#111111', accent:'#22c55e', helmet:'#22c55e', skill:0.86 },
   { name:'Gabriel Bortoleto', team:'Kick Sauber',       num:'5',  body:'#111111', accent:'#22c55e', helmet:'#065f46', skill:0.80 },
-  // ── Visa Cash App Racing Bulls ───────────────────────────────────────────────
-  { name:'Liam Lawson',       team:'Racing Bulls',      num:'30', body:'#0f172a', accent:'#ef4444', helmet:'#1a1a1a', skill:0.84 },
+  { name:'Lance Stroll',      team:'Aston Martin',      num:'18', body:'#005540', accent:'#c0a030', helmet:'#1d4ed8', skill:0.81 },
   { name:'Isack Hadjar',      team:'Racing Bulls',      num:'6',  body:'#0f172a', accent:'#ef4444', helmet:'#1d4ed8', skill:0.82 },
+  // ── DURO ─────────────────────────────────────────────────────────────────────
+  { name:'Liam Lawson',       team:'Racing Bulls',      num:'30', body:'#0f172a', accent:'#ef4444', helmet:'#1a1a1a', skill:0.84 },
+  { name:'Kimi Antonelli',    team:'Mercedes-AMG',      num:'12', body:'#1e293b', accent:'#00d2be', helmet:'#cc0000', skill:0.84 },
+  { name:'Franco Colapinto',  team:'BWT Alpine',        num:'43', body:'#0090d0', accent:'#f569b7', helmet:'#74c0fc', skill:0.85 },
+  { name:'Esteban Ocon',      team:'Haas F1 Team',      num:'31', body:'#1c1c1c', accent:'#cc0000', helmet:'#1d4ed8', skill:0.85 },
+  { name:'Alexander Albon',   team:'Williams Racing',   num:'23', body:'#003087', accent:'#e8f4ff', helmet:'#cc0000', skill:0.86 },
+  { name:'Nico Hülkenberg',   team:'Kick Sauber',       num:'27', body:'#111111', accent:'#22c55e', helmet:'#22c55e', skill:0.86 },
+  { name:'Pierre Gasly',      team:'BWT Alpine',        num:'10', body:'#0090d0', accent:'#f569b7', helmet:'#1565c0', skill:0.87 },
+  // ── EXPERTO ──────────────────────────────────────────────────────────────────
+  { name:'Yuki Tsunoda',      team:'Red Bull Racing',   num:'22', body:'#1d2f6a', accent:'#ffd700', helmet:'#ef4444', skill:0.88 },
+  { name:'Carlos Sainz',      team:'Williams Racing',   num:'55', body:'#003087', accent:'#e8f4ff', helmet:'#ffd700', skill:0.88 },
+  { name:'Oscar Piastri',     team:'McLaren F1 Team',   num:'81', body:'#ff6b00', accent:'#ffd700', helmet:'#ffd700', skill:0.89 },
+  { name:'George Russell',    team:'Mercedes-AMG',      num:'63', body:'#1e293b', accent:'#00d2be', helmet:'#ffd700', skill:0.90 },
+  { name:'Fernando Alonso',   team:'Aston Martin',      num:'14', body:'#005540', accent:'#c0a030', helmet:'#1a1a1a', skill:0.91 },
+  // ── ÉLITE ────────────────────────────────────────────────────────────────────
+  { name:'Charles Leclerc',   team:'Scuderia Ferrari',  num:'16', body:'#cc0000', accent:'#f8fafc', helmet:'#cc0000', skill:0.92 },
+  { name:'Lando Norris',      team:'McLaren F1 Team',   num:'4',  body:'#ff6b00', accent:'#1a1a1a', helmet:'#ff6b00', skill:0.93 },
+  { name:'Lewis Hamilton',    team:'Scuderia Ferrari',  num:'44', body:'#cc0000', accent:'#f8fafc', helmet:'#1a1a1a', skill:0.94 },
+  { name:'Max Verstappen',    team:'Red Bull Racing',   num:'1',  body:'#1d2f6a', accent:'#ffd700', helmet:'#cc1100', skill:0.96 },
 ];
 
 function rivalDiff(skill) {
@@ -703,7 +697,7 @@ function updateHUD() {
     hudRole.style.borderRadius = '4px';
     hudRole.style.padding      = '1px 5px';
   } else {
-    hudRole.textContent      = isHost ? 'HOST' : 'GUEST';
+    hudRole.textContent      = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
     hudRole.style.color      = '';
     hudRole.style.background = '';
     hudRole.style.padding    = '';
@@ -857,7 +851,7 @@ function loop(ts) {
         const relV = Math.abs(vLocal - vRemote);
         // Threshold 5 (not 10) to better catch side impacts as CPU-initiated
         const playerIsAggressor = vLocal > vRemote + 5;
-        const baseDmg = Math.min(18, 3 + relV * 0.05);
+        const baseDmg = Math.min(6, 1 + relV * 0.02);
         localDamage = Math.min(100, localDamage + (playerIsAggressor ? baseDmg : baseDmg * 0.15));
         playCollisionSound();
       }
