@@ -2,8 +2,8 @@
 
 ## Current Status
 
-**Active phase:** None — project initialized, ready to start Phase 1
-**Last action:** v2.0 project initialized with 35 requirements across 3 phases
+**Active phase:** Phase 1 — Foundation
+**Last action:** Phase 1 planned — 4 plans in 2 waves, ready to execute
 **Resumed:** 2026-06-26
 
 ## Project Reference
@@ -17,7 +17,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 | Phase | Name | Goal | Status |
 |-------|------|------|--------|
-| 1 | Foundation | Game runs cleanly with no known bugs, expanded keyboard controls, correct 2026 grid, and responsive layout on any device | ○ Pending |
+| 1 | Foundation | Game runs cleanly with no known bugs, expanded keyboard controls, correct 2026 grid, and responsive layout on any device | ◐ Planned (4 plans) |
 | 2 | Monaco + 4 Cars | Races take place on Monaco circuit with 4 cars on track simultaneously — player plus 3 AI opponents with distinct personalities | ○ Pending |
 | 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage | ○ Pending |
 

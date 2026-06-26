@@ -67,7 +67,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/4 | Not started | - |
+| 1. Foundation | 0/4 | Planned | - |
 | 2. Monaco + 4 Cars | 0/? | Not started | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 

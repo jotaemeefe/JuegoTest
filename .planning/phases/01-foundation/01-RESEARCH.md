@@ -642,7 +642,7 @@ All of the following MUST be honored by the plan:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **BUG-02 actual asymmetry location**
    - What we know: Code at lines 992–996 shows the guard `if (remote.lap < TOTAL_LAPS - 1) return;` already exists.
