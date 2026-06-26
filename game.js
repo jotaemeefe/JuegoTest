@@ -983,6 +983,8 @@ function onMsg(data) {
     if (!isFinite(x) || x < -500 || x > 1000) return;
     if (!isFinite(y) || y < -500 || y > 1200) return;
     if (!isFinite(angle)) return;
+    // Normalize angle to [-PI, PI] to reject garbage large values from malicious peers
+    const normalizedAngle = ((angle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     if (!isFinite(speed) || speed < 0 || speed > MAX_SPD_ON * 1.5) return;
     if (typeof lap !== 'number' || lap < 0 || lap > TOTAL_LAPS) return;
     if (typeof cp  !== 'number' || cp  < 0 || cp  >= CPS.length) return;
@@ -991,7 +993,7 @@ function onMsg(data) {
     remote.prevAngle  = remote.angle;
     remote.x          = x;
     remote.y          = y;
-    remote.angle      = angle;
+    remote.angle      = normalizedAngle;
     remote.speed      = speed;
     remote.lap        = lap;
     remote.nextCP     = cp;
