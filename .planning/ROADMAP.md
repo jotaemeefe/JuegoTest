@@ -24,10 +24,15 @@
 **Success Criteria:**
 1. Clicking "Revancha" in solo mode restarts cleanly every time with no double-reset audio glitch.
 2. A player can steer and brake using arrow keys, WASD, or spacebar in addition to the original A/D/S keys.
-3. The rival grid shows all 20 correct 2026 F1 drivers with accurate team colors and numbers.
+3. The rival grid shows all 21 correct 2026 F1 drivers with accurate team colors and numbers.
 4. On a 375px-wide phone screen, rival selection is navigable as a carousel (not an overflowing grid), and tapping never accidentally selects text or UI elements.
 5. The multiplayer room screen shows a "Copiar código" button that copies the code and shows a "Copiado!" toast; peer disconnection shows an in-game modal instead of a blocking `alert()`.
-**Plans:** TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 01-01-PLAN.md — Bug fixes (BUG-01–04), spacebar brake (CTRL-03), 2026 RIVALS array (GRID-01, GRID-02)
+- [ ] 01-02-PLAN.md — Responsive layout verification (UI-01), mobile text-select fix (UI-02), DPR canvas scaling (UI-03)
+- [ ] 01-03-PLAN.md — Mobile rival carousel prev/next (UI-04)
+- [ ] 01-04-PLAN.md — Copy room code button + toast (UI-05), disconnect modal (UI-06)
 **UI hint:** yes
 
 ### Phase 2: Monaco + 4 Cars
@@ -62,7 +67,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/? | Not started | - |
+| 1. Foundation | 0/4 | Not started | - |
 | 2. Monaco + 4 Cars | 0/? | Not started | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
@@ -113,3 +118,29 @@
 ---
 
 *Roadmap created: 2026-06-26*
+*Plans added: 2026-06-26 (Phase 1: 4 plans across 2 waves)*
+
+---
+
+## Release 3: Championship Mode *(milestone futuro — post v2.0)*
+
+**Goal:** Darle al juego un meta-loop real. El jugador disputa una temporada F1 completa contra los 20 pilotos del grid en 6 circuitos icónicos, acumulando puntos hasta coronar un campeón.
+
+**Depends on:** v2.0 completo (las 3 fases anteriores en estado done)
+
+**Scope tentativo:**
+
+### Phase R3-1: Multi-Track Engine
+Extender el sistema de pistas para soportar múltiples circuitos. Cada pista tiene su geometría canvas, waypoints de IA, y visuales de color blocks. Circuitos objetivo: Monza, Silverstone, Spa, Suzuka, Interlagos (Monaco ya existe desde Phase 2).
+
+### Phase R3-2: Season Mode
+Sistema de temporada: calendario de 6 carreras, puntos F1 (25-18-15-12-10-8-6-4-2-1), tabla de posiciones entre carreras, estado persistido en localStorage, pantalla de campeón al final de la temporada.
+
+### Phase R3-3: Race Weekend
+Clasificación antes de cada carrera para definir el grid de salida. Mejoras de IA para que los 20 pilotos compitan de forma creíble en la tabla de puntos durante toda la temporada.
+
+**Modo:** Solo vs CPU. Multiplayer NO está en scope de Release 3.
+
+**Visión de largo plazo:** Post Release 3, evaluar conversión a app nativa iOS/Android con multiplayer real. Ver [[vision-ios-android-app]].
+
+**Seed:** `.planning/seeds/championship-season-mode.md`
