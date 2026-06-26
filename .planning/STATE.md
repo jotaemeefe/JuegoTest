@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 01-03 (next)
+current_plan: 01-04 (next)
 status: in-progress
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-06-26T18:00:00.000Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-06-26T17:45:00.000Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -19,8 +19,8 @@ progress:
 ## Current Status
 
 **Active phase:** Phase 1 — Foundation
-**Current plan:** 01-03 (next)
-**Last action:** Completed 01-02-PLAN.md — user-select body fix, devicePixelRatio HiDPI canvas scaling
+**Current plan:** 01-04 (next)
+**Last action:** Completed 01-03-PLAN.md — mobile rival select carousel with prev/next buttons and N/21 indicator
 **Resumed:** 2026-06-26
 
 ## Project Reference
@@ -41,13 +41,14 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Performance Metrics
 
 - Requirements total: 35
-- Requirements completed: 12 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03)
+- Requirements completed: 13 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04)
 - Phases completed: 0 / 3
 
 | Plan | Phase | Duration | Tasks | Files |
 |------|-------|----------|-------|-------|
 | 01-01 | 01-foundation | 20 min | 2 | 1 |
 | 01-02 | 01-foundation | 10 min | 2 | 2 |
+| 01-03 | 01-foundation | 8 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -60,6 +61,9 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - BUG-02 finish guard is symmetric for both host and guest paths through shared onMsg handler (verified, already correct)
 - BUG-04 lapStartTime correctly initialized at countdown→racing transition (verified, already correct)
 - Cadillac livery colors used from best available knowledge — user should verify at formula1.com
+- carouselIdx declared local inside buildRivalGrid() — resets to 0 each visit, no global state leak
+- prevBtn.onclick assignment (not addEventListener) prevents handler accumulation on repeated buildRivalGrid() calls
+- display:contents on .carousel-wrapper at >=500px makes wrapper invisible to layout with zero desktop impact
 
 ### Known Constraints
 
@@ -95,12 +99,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-26
-**Stopped at:** Completed 01-02-PLAN.md
-**Resume file:** .planning/phases/01-foundation/01-03-PLAN.md
+**Stopped at:** Completed 01-03-PLAN.md
+**Resume file:** .planning/phases/01-foundation/01-04-PLAN.md
 
 ## Resume Instructions
 
-To continue: `/gsd:execute-phase 1` (will pick up at plan 01-03)
+To continue: `/gsd:execute-phase 1` (will pick up at plan 01-04)
 
 ---
 *State initialized: 2026-06-26*
