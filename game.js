@@ -157,6 +157,7 @@ let cdTimer     = 0;
 let lastNetSend = 0;
 let lastTime    = 0;
 let rafId       = null;
+let loopRunning = false;
 let winner      = null;  // 'local' | 'remote'
 let localDamage = 0;     // 0–100 accumulated damage
 let aiWpIdx     = 0;     // AI waypoint index
@@ -801,6 +802,7 @@ function drawFloatingTexts(dt) {
 
 // ── Main game loop ─────────────────────────────────────────────────────────────
 function loop(ts) {
+  if (!loopRunning) return;
   const dt = lastTime === 0 ? 0.016 : Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
 
@@ -941,12 +943,14 @@ function loop(ts) {
 }
 
 function startLoop() {
+  loopRunning = true;
   if (rafId) cancelAnimationFrame(rafId);
   lastTime = 0;
   rafId = requestAnimationFrame(loop);
 }
 
 function stopLoop() {
+  loopRunning = false;
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 }
 
@@ -1077,6 +1081,7 @@ bindTouch('touch-brake', 'down');
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function goTo(name) {
+  if (name !== 'game') stopLoop();
   Object.values(SCR).forEach(s => s.classList.remove('active'));
   if (SCR[name]) SCR[name].classList.add('active');
 }
