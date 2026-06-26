@@ -1018,9 +1018,17 @@ function onMsg(data) {
 
 function onDisconnect() {
   stopLoop();
-  alert('El rival se desconectó. Vuelve al menú.');
-  goTo('lobby');
   Net.destroy();
+  const modal = document.getElementById('disconnect-modal');
+  if (modal) {
+    modal.hidden = false;
+    setTimeout(() => {
+      modal.hidden = true;
+      goTo('lobby');
+    }, 3000);
+  } else {
+    goTo('lobby');
+  }
 }
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
@@ -1153,6 +1161,27 @@ document.getElementById('btn-connect').addEventListener('click', () => {
 document.getElementById('btn-cancel-join').addEventListener('click', () => {
   Net.destroy();
   goTo('lobby');
+});
+
+document.getElementById('btn-copy-code').addEventListener('click', () => {
+  const code = document.getElementById('room-code-display').textContent.trim();
+  const toast = document.getElementById('copy-toast');
+  if (!toast) return;
+  const showToast = (msg) => {
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      showToast('¡Copiado!');
+    }).catch(() => {
+      showToast('Copia el código manualmente');
+    });
+  } else {
+    // Fallback for file:// context or older browsers
+    showToast('Copia el código manualmente');
+  }
 });
 
 function buildRivalGrid() {
