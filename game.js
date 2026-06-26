@@ -338,14 +338,32 @@ function updateLobbyRecord() {
   }
 }
 
+// ── Isometric projection ──────────────────────────────────────────────────────
+const ISO = { cx: 240, cy: 295, wx: 240, wy: 320, sx: 0.52, sy: 0.38 };
+
+function project(wx, wy) {
+  const dx = wx - ISO.wx, dy = wy - ISO.wy;
+  return { x: ISO.cx + (dx - dy) * ISO.sx, y: ISO.cy + (dx + dy) * ISO.sy };
+}
+
+function darken(hex, f) {
+  try {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgb(${Math.round(r*(1-f))},${Math.round(g*(1-f))},${Math.round(b*(1-f))})`;
+  } catch(_) { return hex; }
+}
+
 // ── Track drawing ─────────────────────────────────────────────────────────────
 function drawSpinePath() {
   ctx.beginPath();
-  ROAD_SPINE.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  ROAD_SPINE.forEach(([x, y], i) => {
+    const p = project(x, y);
+    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+  });
 }
 
 function drawTrack() {
-  // Grass background
+  // Ground
   ctx.fillStyle = '#1a4a10';
   ctx.fillRect(0, 0, 480, 640);
 
@@ -375,21 +393,31 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish chequered stripe — vertical, perpendicular to main straight (east-west)
-  const flX = 163, flYT = 553 - ROAD_HALF_W, flYB = 553 + ROAD_HALF_W;
-  for (let i = 0, y = flYT; y < flYB; y += 8, i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#f8fafc' : '#111827';
-    ctx.fillRect(flX - 3, y, 6, 8);
-  }
+  // Start/finish chequered stripe — projected into isometric space
+  const pm1 = project(163, 553 - ROAD_HALF_W);
+  const pm2 = project(163, 553 + ROAD_HALF_W);
+  ctx.save();
+  ctx.lineWidth = 5;
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = '#f8fafc';
+  ctx.beginPath(); ctx.moveTo(pm1.x, pm1.y); ctx.lineTo(pm2.x, pm2.y); ctx.stroke();
+  ctx.lineDashOffset = 6;
+  ctx.strokeStyle = '#111827';
+  ctx.beginPath(); ctx.moveTo(pm1.x, pm1.y); ctx.lineTo(pm2.x, pm2.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // META label
   ctx.fillStyle = 'rgba(248,250,252,0.75)';
   ctx.font = 'bold 7px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('META', flX, flYT - 3);
+  ctx.fillText('META', pm1.x + 14, pm1.y - 3);
 
   // Watermark
+  const wm = project(240, 320);
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
   ctx.font = 'bold 10px monospace';
-  ctx.fillText('CIRCUITO COLAPINTO · BUENOS AIRES', 240, 340);
+  ctx.fillText('CIRCUITO COLAPINTO · BUENOS AIRES', wm.x, wm.y);
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
@@ -400,19 +428,53 @@ function carStyle(styleIdx) {
 }
 
 function drawCar(car, styleIdx) {
-  const s = carStyle(styleIdx);
+  const s   = carStyle(styleIdx);
+  const sp  = project(car.x, car.y);
+  const θ   = car.angle + Math.PI / 2;
+  const COS = Math.cos(θ), SIN = Math.sin(θ);
+
+  // Combined rotate + isometric projection matrix
+  const ma = ISO.sx * (COS - SIN);
+  const mb = ISO.sy * (COS + SIN);
+  const mc = -ISO.sx * (SIN + COS);
+  const md = ISO.sy * (COS - SIN);
+
+  const ELEV = 5;
+
+  // Ground shadow
   ctx.save();
-  ctx.translate(car.x, car.y);
-  ctx.rotate(car.angle + Math.PI / 2);   // angle 0 = east; +π/2 so car "nose" points in angle dir
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#000';
+  ctx.translate(sp.x + 4, sp.y + 9);
+  ctx.transform(ma, mb, mc, md, 0, 0);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 14, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Depth / side face (drawn slightly below, darker)
+  ctx.save();
+  ctx.translate(sp.x, sp.y + ELEV);
+  ctx.transform(ma, mb, mc, md, 0, 0);
+  ctx.fillStyle = darken(s.body, 0.52);
+  ctx.fillRect(-9, -22, 18, 42);
+  ctx.fillStyle = darken(s.stripe, 0.52);
+  ctx.fillRect(-14, 17, 28, 4);
+  ctx.restore();
+
+  // Top face
+  ctx.save();
+  ctx.translate(sp.x, sp.y);
+  ctx.transform(ma, mb, mc, md, 0, 0);
 
   // Body
   ctx.fillStyle = s.body;
   ctx.fillRect(-9, -22, 18, 42);
 
-  // Colour stripe (side pod accent)
+  // Side pod stripes
   ctx.fillStyle = s.stripe;
   ctx.fillRect(-9, -4, 3, 16);
-  ctx.fillRect(6, -4, 3, 16);
+  ctx.fillRect(6,  -4, 3, 16);
 
   // Front wing
   ctx.fillStyle = s.stripe;
@@ -421,27 +483,29 @@ function drawCar(car, styleIdx) {
   // Rear wing
   ctx.fillRect(-14, 17, 28, 4);
 
-  // Cockpit / halo
+  // Cockpit
   ctx.fillStyle = '#111';
   ctx.fillRect(-5, -10, 10, 18);
-  // Helmet (driver's signature colour)
+
+  // Helmet
   ctx.fillStyle = s.helmet || '#555';
   ctx.beginPath();
   ctx.ellipse(0, -2, 4, 5, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Visor (dark tinted strip)
-  ctx.fillStyle = 'rgba(10, 20, 40, 0.88)';
+
+  // Visor
+  ctx.fillStyle = 'rgba(10,20,40,0.88)';
   ctx.fillRect(-3, -5, 6, 3.5);
 
-  // Number plate
+  ctx.restore();
+
+  // Car number in screen space (avoids distortion from matrix)
   if (s.num) {
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#fff';
     ctx.font = 'bold 7px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(s.num, 0, 4);
+    ctx.fillText(s.num, sp.x, sp.y + 4);
   }
-
-  ctx.restore();
 }
 
 // ── Remote car interpolation ───────────────────────────────────────────────────
@@ -681,9 +745,10 @@ function drawWin(won) {
 
 // ── Off-track vignette ────────────────────────────────────────────────────────
 function drawOffTrackVignette(alpha) {
-  const grad = ctx.createRadialGradient(240, 320, 140, 240, 320, 340);
+  const center = project(240, 320);
+  const grad = ctx.createRadialGradient(center.x, center.y, 100, center.x, center.y, 290);
   grad.addColorStop(0,   `rgba(180,0,0,0)`);
-  grad.addColorStop(0.6, `rgba(180,0,0,0)`);
+  grad.addColorStop(0.5, `rgba(180,0,0,0)`);
   grad.addColorStop(1,   `rgba(180,0,0,${alpha})`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 480, 640);
