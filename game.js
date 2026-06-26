@@ -1317,14 +1317,16 @@ document.getElementById('btn-restart').addEventListener('click', () => {
     if (isHost) {
       // beginCountdown() calls resetGame() internally — don't call it twice
       beginCountdown(); Net.send({ type: 'start' });
+      startResultPoll();
     } else {
-      // Guest requests restart; host will respond with 'start'
+      // Guest requests restart; host will respond with 'start'.
+      // Do NOT call startResultPoll() here — it fires when host sends 'start' (via onMsg).
       Net.send({ type: 'restart' });
     }
   } else {
     beginCountdown();
+    startResultPoll();
   }
-  startResultPoll();
 });
 
 document.getElementById('btn-menu').addEventListener('click', () => {
