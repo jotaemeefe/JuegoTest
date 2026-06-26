@@ -144,3 +144,40 @@ Clasificación antes de cada carrera para definir el grid de salida. Mejoras de 
 **Visión de largo plazo:** Post Release 3, evaluar conversión a app nativa iOS/Android con multiplayer real. Ver [[vision-ios-android-app]].
 
 **Seed:** `.planning/seeds/championship-season-mode.md`
+
+---
+
+## Release 4: Race Strategy & Drama *(milestone futuro — post R3)*
+
+**Goal:** Transformar cada carrera individual de "andá lo más rápido posible" a un problema de optimización con incertidumbre. Cada carrera debe tener decisiones genuinas y momentos impredecibles que no se pueden anticipar.
+
+**Depends on:** Release 3 completo
+
+**Fundamento teórico:**
+- *Variable Reward Schedules* (Skinner): eventos aleatorios (Safety Car, lluvia) crean re-jugabilidad que ninguna mejora técnica puede replicar.
+- *Decisiones bajo incertidumbre* (Nash): el pit stop timing es un problema minimax real — el jugador no sabe cuándo pica la IA.
+- *Flow state + Mastery expression* (Csikszentmihalyi): sector times y Push to Pass dan a jugadores expertos capas de profundidad invisibles para novatos.
+
+**Scope:**
+
+### Phase R4-1: Tire Strategy
+- 3 compuestos: Blandos (5 vueltas), Medios (8 vueltas), Duros (12 vueltas, algo más lentos)
+- Degradación gradual: velocidad cae ~5% por vuelta una vez agotado el compuesto
+- Pit stop: ~8 segundos parado + selector de compuesto nuevo
+- Selección pre-carrera: el jugador elige estrategia de entrada
+- IA con estrategia propia opaca — no sabés cuándo pican
+
+### Phase R4-2: Dynamic Race Events
+- **Safety Car** (~20% de probabilidad al haber colisión): neutraliza la carrera, compacta el campo, destruye ventajas construidas; la decisión "pico bajo SC o no" es el momento más dramático del F1
+- **VSC** (Virtual Safety Car): versión suave — congela brechas pero no las anula
+- **DRS**: habilitado en rectas largas por circuito; permite atacar autos más rápidos y crea el mechanic de defensa de posición
+- **Lluvia aleatoria** (15% por carrera): Blandos pierden agarre, Duros aguantan; voltea la estrategia completa
+
+### Phase R4-3: Mastery Feedback
+- **Sector times S1/S2/S3**: color coding — verde (mejor del año), violeta (mejor personal), amarillo (más lento)
+- **Push to Pass**: boost de 5 segundos que recarga en media vuelta; decisión táctica por vuelta
+- **Radio del ingeniero**: mensajes contextuales — "Estás P2, Norris a 1.8 segundos y viene rápido"
+
+**El momento que hace adictivo el juego:** estás P1 con neumáticos degradados, el Safety Car sale por una colisión, la IA pica y sale con Blandos frescos — tenés 3 segundos para decidir si entrás o defendés. Ese momento no puede existir en el juego sin este release.
+
+**Seed:** `.planning/seeds/race-strategy-drama.md`
