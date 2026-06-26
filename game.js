@@ -662,7 +662,7 @@ function updateAI(car, dt) {
 
   // Brake before sharp corners
   const braking  = absDiff > 0.65;
-  const lapBonus = 1 + Math.min(remote.lap, 2) * 0.04; // +4% per completed lap, max +8%
+  const lapBonus = 1 + Math.min(car.lap, 2) * 0.04; // +4% per completed lap, max +8%
   const aiMaxSpd = MAX_SPD_ON * skill * lapBonus * (braking ? 0.60 : 1.0);
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
