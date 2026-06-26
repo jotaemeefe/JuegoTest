@@ -27,12 +27,12 @@
 3. The rival grid shows all 21 correct 2026 F1 drivers with accurate team colors and numbers.
 4. On a 375px-wide phone screen, rival selection is navigable as a carousel (not an overflowing grid), and tapping never accidentally selects text or UI elements.
 5. The multiplayer room screen shows a "Copiar código" button that copies the code and shows a "Copiado!" toast; peer disconnection shows an in-game modal instead of a blocking `alert()`.
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans executed
 Plans:
 - [x] 01-01-PLAN.md — Bug fixes (BUG-01–04), spacebar brake (CTRL-03), 2026 RIVALS array (GRID-01, GRID-02)
 - [x] 01-02-PLAN.md — Responsive layout verification (UI-01), mobile text-select fix (UI-02), DPR canvas scaling (UI-03)
 - [x] 01-03-PLAN.md — Mobile rival carousel prev/next (UI-04)
-- [ ] 01-04-PLAN.md — Copy room code button + toast (UI-05), disconnect modal (UI-06)
+- [x] 01-04-PLAN.md — Copy room code button + toast (UI-05), disconnect modal (UI-06)
 **UI hint:** yes
 
 ### Phase 2: Monaco + 4 Cars
@@ -67,7 +67,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 3/4 | In Progress|  |
+| 1. Foundation | 4/4 | Complete | 2026-06-26 |
 | 2. Monaco + 4 Cars | 0/? | Not started | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 

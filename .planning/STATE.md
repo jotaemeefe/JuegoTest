@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 01-04 (next)
-status: in-progress
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-06-26T17:45:00.000Z"
+current_plan: 01-04 (done)
+status: phase-1-complete
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-06-26T18:00:00.000Z"
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 1 — Foundation
-**Current plan:** 01-04 (next)
-**Last action:** Completed 01-03-PLAN.md — mobile rival select carousel with prev/next buttons and N/21 indicator
+**Active phase:** Phase 1 — Foundation (COMPLETE)
+**Current plan:** 01-04 (done)
+**Last action:** Completed 01-04-PLAN.md — copy code button + toast (UI-05) and disconnect modal replacing alert() (UI-06)
 **Resumed:** 2026-06-26
 
 ## Project Reference
@@ -41,14 +41,15 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Performance Metrics
 
 - Requirements total: 35
-- Requirements completed: 13 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04)
-- Phases completed: 0 / 3
+- Requirements completed: 15 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06)
+- Phases completed: 1 / 3
 
 | Plan | Phase | Duration | Tasks | Files |
 |------|-------|----------|-------|-------|
 | 01-01 | 01-foundation | 20 min | 2 | 1 |
 | 01-02 | 01-foundation | 10 min | 2 | 2 |
 | 01-03 | 01-foundation | 8 min | 2 | 3 |
+| 01-04 | 01-foundation | 8 min | 2 | 3 |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - carouselIdx declared local inside buildRivalGrid() — resets to 0 each visit, no global state leak
 - prevBtn.onclick assignment (not addEventListener) prevents handler accumulation on repeated buildRivalGrid() calls
 - display:contents on .carousel-wrapper at >=500px makes wrapper invisible to layout with zero desktop impact
+- Net.destroy() moved before modal.hidden = false in onDisconnect() — peer torn down before 3s UI delay
+- navigator.clipboard && guard used before writeText() to handle file:// context without silent failure
 
 ### Known Constraints
 
@@ -99,12 +102,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-26
-**Stopped at:** Completed 01-03-PLAN.md
-**Resume file:** .planning/phases/01-foundation/01-04-PLAN.md
+**Stopped at:** Completed 01-04-PLAN.md (Phase 1 complete)
+**Resume file:** None — Phase 1 complete, proceed to Phase 2
 
 ## Resume Instructions
 
-To continue: `/gsd:execute-phase 1` (will pick up at plan 01-04)
+Phase 1 complete. To start Phase 2: `/gsd:discuss-phase 2` or `/gsd:execute-phase 2`
 
 ---
 *State initialized: 2026-06-26*
