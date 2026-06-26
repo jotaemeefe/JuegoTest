@@ -335,7 +335,7 @@ function playGoSound() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTime(ms) {
-  if (!isFinite(ms) || ms <= 0) return '0:00.0';
+  if (!isFinite(ms) || ms < 0) return '0:00.0';
   const totalS = Math.floor(ms / 1000);
   const m      = Math.floor(totalS / 60);
   const s      = totalS % 60;
