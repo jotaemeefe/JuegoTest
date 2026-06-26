@@ -1189,22 +1189,54 @@ function buildRivalGrid() {
   RIVALS.forEach((r, idx) => {
     const diff = rivalDiff(r.skill);
     const wins = localStorage.getItem(`cr_rival_${idx}`);
-    const badge = wins === 'win'  ? '<span class="rival-badge badge-win">VENCIDO</span>'
-                : wins === 'loss' ? '<span class="rival-badge badge-loss">REVANCHA</span>'
-                : '';
     const card = document.createElement('div');
     card.className = 'rival-card';
     card.dataset.rivalIdx = idx;
-    card.innerHTML = `
-      <div class="rival-band" style="background:${r.body};border-bottom:3px solid ${r.accent};"></div>
-      <div class="rival-info">
-        <div class="rival-name">${r.name.split(' ').pop().toUpperCase()} <span class="rival-num">#${r.num}</span></div>
-        <div class="rival-team">${r.team}</div>
-        <div class="rival-footer">
-          <span class="rival-diff" style="color:${diff.color}">${diff.label}</span>
-          ${badge}
-        </div>
-      </div>`;
+
+    const band = document.createElement('div');
+    band.className = 'rival-band';
+    band.style.background = r.body;
+    band.style.borderBottom = `3px solid ${r.accent}`;
+    card.appendChild(band);
+
+    const info = document.createElement('div');
+    info.className = 'rival-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'rival-name';
+    nameEl.textContent = r.name.split(' ').pop().toUpperCase() + ' ';
+    const numSpan = document.createElement('span');
+    numSpan.className = 'rival-num';
+    numSpan.textContent = `#${r.num}`;
+    nameEl.appendChild(numSpan);
+    info.appendChild(nameEl);
+
+    const teamEl = document.createElement('div');
+    teamEl.className = 'rival-team';
+    teamEl.textContent = r.team;
+    info.appendChild(teamEl);
+
+    const footer = document.createElement('div');
+    footer.className = 'rival-footer';
+    const diffSpan = document.createElement('span');
+    diffSpan.className = 'rival-diff';
+    diffSpan.style.color = diff.color;
+    diffSpan.textContent = diff.label;
+    footer.appendChild(diffSpan);
+    if (wins === 'win') {
+      const badgeSpan = document.createElement('span');
+      badgeSpan.className = 'rival-badge badge-win';
+      badgeSpan.textContent = 'VENCIDO';
+      footer.appendChild(badgeSpan);
+    } else if (wins === 'loss') {
+      const badgeSpan = document.createElement('span');
+      badgeSpan.className = 'rival-badge badge-loss';
+      badgeSpan.textContent = 'REVANCHA';
+      footer.appendChild(badgeSpan);
+    }
+    info.appendChild(footer);
+    card.appendChild(info);
+
     grid.appendChild(card);
   });
   // Update win counter in title
