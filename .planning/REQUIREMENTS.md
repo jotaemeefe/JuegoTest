@@ -53,9 +53,9 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 
 ### UI / UX
 
-- [ ] **UI-01**: UI completamente responsive: layout se adapta a cualquier tamaño de pantalla; usar `vw/vh` y media queries en lugar de tamaños fijos donde corresponda
-- [ ] **UI-02**: Fix bug mobile tap: tap en pantalla no selecciona elementos DOM — implementar `user-select: none` + `touch-action: none` en elementos del juego + `preventDefault()` en todos los handlers touch
-- [ ] **UI-03**: Canvas con `devicePixelRatio`: `canvas.width = 480 * dpr`, `canvas.height = 640 * dpr`, `ctx.scale(dpr, dpr)` para renderizado nítido en Retina y móviles de alta densidad
+- [x] **UI-01**: UI completamente responsive: layout se adapta a cualquier tamaño de pantalla; usar `vw/vh` y media queries en lugar de tamaños fijos donde corresponda
+- [x] **UI-02**: Fix bug mobile tap: tap en pantalla no selecciona elementos DOM — implementar `user-select: none` + `touch-action: none` en elementos del juego + `preventDefault()` en todos los handlers touch
+- [x] **UI-03**: Canvas con `devicePixelRatio`: `canvas.width = 480 * dpr`, `canvas.height = 640 * dpr`, `ctx.scale(dpr, dpr)` para renderizado nítido en Retina y móviles de alta densidad
 - [ ] **UI-04**: Rival select en mobile (< 500px ancho): cambiar grid de 2 columnas a carousel o lista vertical con tarjeta grande del rival actual + botones siguiente/anterior
 - [ ] **UI-05**: Botón "Copiar código" en pantalla de sala multiplayer con toast de confirmación "¡Copiado!" por 1.5s
 - [ ] **UI-06**: Modal de desconexión: reemplazar `alert('El rival se desconectó...')` por modal in-game con auto-redirect a lobby en 3s sin bloquear el thread
@@ -110,9 +110,9 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 | CTRL-03 | Phase 1 | Pending |
 | GRID-01 | Phase 1 | Pending |
 | GRID-02 | Phase 1 | Pending |
-| UI-01 | Phase 1 | Pending |
-| UI-02 | Phase 1 | Pending |
-| UI-03 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Complete |
+| UI-02 | Phase 1 | Complete |
+| UI-03 | Phase 1 | Complete |
 | UI-04 | Phase 1 | Pending |
 | UI-05 | Phase 1 | Pending |
 | UI-06 | Phase 1 | Pending |
