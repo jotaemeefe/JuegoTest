@@ -580,9 +580,10 @@ function checkCheckpoints(car) {
         if (lapStartTime > 0) {
           lastLapMs = performance.now() - lapStartTime;
           lapStartTime = performance.now();
-          const lapNum = car.lap + 1;
-          if (lapNum <= TOTAL_LAPS) {
-            addFloatingText(`VUELTA ${lapNum} / ${TOTAL_LAPS}`, '#f8fafc', 240, 250, 22);
+          const lapNum = car.lap + 1;  // this is the lap just completed
+          if (lapNum < TOTAL_LAPS) {
+            // A new lap is starting — show the lap about to begin
+            addFloatingText(`VUELTA ${lapNum + 1} / ${TOTAL_LAPS}`, '#f8fafc', 240, 250, 22);
           }
           if (lastLapMs < bestLapMs) {
             bestLapMs = lastLapMs;
