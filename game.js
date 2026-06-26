@@ -1004,7 +1004,7 @@ function onMsg(data) {
     // BUG-02: guard prevents premature win via spoofed finish message (T-01-01 threat mitigation)
     // remote.lap is the sender's lap — both host-receives-finish and guest-receives-finish paths
     // check this same guard, making it symmetric for both peers.
-    if (remote.lap < TOTAL_LAPS - 1) return;
+    if (remote.lap < TOTAL_LAPS) return;
     winner = 'remote';
     phase  = 'done';
   }
