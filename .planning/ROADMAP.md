@@ -1,0 +1,115 @@
+# Roadmap: Colapinto F1 Racer v2.0
+
+**Project:** Colapinto F1 Racer
+**Milestone:** v2.0
+**Phases:** 3
+**Requirements:** 35 v2 requirements
+
+---
+
+## Phases
+
+- [ ] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
+- [ ] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
+- [ ] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects, and UI redesign.
+
+---
+
+## Phase Details
+
+### Phase 1: Foundation
+**Goal:** The existing game runs cleanly with zero known bugs, expanded keyboard controls, the correct 2026 F1 grid, and a responsive layout that works on any device.
+**Depends on:** Nothing — all changes are additive or corrective; no architectural dependencies.
+**Requirements:** BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06
+**Success Criteria:**
+1. Clicking "Revancha" in solo mode restarts cleanly every time with no double-reset audio glitch.
+2. A player can steer and brake using arrow keys, WASD, or spacebar in addition to the original A/D/S keys.
+3. The rival grid shows all 20 correct 2026 F1 drivers with accurate team colors and numbers.
+4. On a 375px-wide phone screen, rival selection is navigable as a carousel (not an overflowing grid), and tapping never accidentally selects text or UI elements.
+5. The multiplayer room screen shows a "Copiar código" button that copies the code and shows a "Copiado!" toast; peer disconnection shows an in-game modal instead of a blocking `alert()`.
+**Plans:** TBD
+**UI hint:** yes
+
+### Phase 2: Monaco + 4 Cars
+**Goal:** Races take place on a faithful Monaco circuit with 4 cars on track simultaneously — the player plus 3 AI opponents with distinct personalities — with full collision detection between all cars.
+**Depends on:** Phase 1
+**Requirements:** TRACK-01, TRACK-02, TRACK-03, TRACK-04, CARS-01, CARS-02, CARS-03, CARS-04
+**Success Criteria:**
+1. The race track visually resembles Monaco: Loews hairpin, Casino Square, Massenet, tunnel, Swimming Pool, Rascasse are all recognizable landmarks drawn in color blocks on the canvas.
+2. Driving through the tunnel darkens the car with a polygon overlay; exiting the tunnel removes it.
+3. Three AI cars appear on the grid at race start and drive laps independently of the player; their starting positions and lap counts are tracked separately.
+4. The HUD shows a live P1/P2/P3/P4 classification that updates in real time as cars overtake each other.
+5. When two cars collide, both are physically deflected; the collision system covers all 6 possible pairs among the 4 cars.
+**Plans:** TBD
+
+### Phase 3: AI, Audio & Polish
+**Goal:** Racing feels tense and dramatic: AI opponents brake for corners and have distinct driving personalities, background music builds atmosphere, and visual effects celebrate overtakes and communicate damage.
+**Depends on:** Phase 2
+**Requirements:** AI-01, AI-02, AI-03, AUDIO-01, AUDIO-02, AUDIO-03, VFX-01, VFX-02, VFX-03, VFX-04, VFX-05, UI-07
+**Success Criteria:**
+1. AI cars visibly slow down before tight corners (Loews, Rascasse) and their lines vary lap-to-lap; the aggressive AI takes tighter lines than the defensive AI.
+2. Background music plays during the race and fades out when the checkered flag falls.
+3. When the player's car takes heavy damage, the screen tints progressively from orange to red and shakes noticeably on hard impacts.
+4. Overtaking a rival triggers a visible flash on the passed car and a rising synth tone; being overtaken triggers a flash on the player's car.
+5. After each lap crossing, the player sees their lap time compared to their personal best ("1:23.4 +0.8s récord" or "RÉCORD PERSONAL! -0.3s" in gold). The results screen always shows the best lap with a "--:--" placeholder if no lap has been completed.
+6. The lobby, rival select, and results screens have an updated visual design with impactful typography and Alpine brand colors (blue/pink).
+**Plans:** TBD
+**UI hint:** yes
+
+---
+
+## Progress Table
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Foundation | 0/? | Not started | - |
+| 2. Monaco + 4 Cars | 0/? | Not started | - |
+| 3. AI, Audio & Polish | 0/? | Not started | - |
+
+---
+
+## Coverage
+
+| Requirement | Phase |
+|-------------|-------|
+| BUG-01 | Phase 1 |
+| BUG-02 | Phase 1 |
+| BUG-03 | Phase 1 |
+| BUG-04 | Phase 1 |
+| CTRL-01 | Phase 1 |
+| CTRL-02 | Phase 1 |
+| CTRL-03 | Phase 1 |
+| GRID-01 | Phase 1 |
+| GRID-02 | Phase 1 |
+| UI-01 | Phase 1 |
+| UI-02 | Phase 1 |
+| UI-03 | Phase 1 |
+| UI-04 | Phase 1 |
+| UI-05 | Phase 1 |
+| UI-06 | Phase 1 |
+| TRACK-01 | Phase 2 |
+| TRACK-02 | Phase 2 |
+| TRACK-03 | Phase 2 |
+| TRACK-04 | Phase 2 |
+| CARS-01 | Phase 2 |
+| CARS-02 | Phase 2 |
+| CARS-03 | Phase 2 |
+| CARS-04 | Phase 2 |
+| AI-01 | Phase 3 |
+| AI-02 | Phase 3 |
+| AI-03 | Phase 3 |
+| AUDIO-01 | Phase 3 |
+| AUDIO-02 | Phase 3 |
+| AUDIO-03 | Phase 3 |
+| VFX-01 | Phase 3 |
+| VFX-02 | Phase 3 |
+| VFX-03 | Phase 3 |
+| VFX-04 | Phase 3 |
+| VFX-05 | Phase 3 |
+| UI-07 | Phase 3 |
+
+**Total mapped: 35/35**
+
+---
+
+*Roadmap created: 2026-06-26*
