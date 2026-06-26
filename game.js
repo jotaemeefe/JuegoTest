@@ -1026,6 +1026,8 @@ function resetGame() {
   canvasWrap.classList.remove('shake');
   hudTimer.textContent = '0:00.0';
   hudTimer.classList.remove('record');
+  hudRole.textContent  = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
+  hudRole.style.color = ''; hudRole.style.background = ''; hudRole.style.padding = '';
   localDamage        = 0;
   aiWpIdx            = 0;
   floatingTexts      = [];
