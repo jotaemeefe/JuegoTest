@@ -21,10 +21,10 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 
 ### Pista — Mónaco
 
-- [ ] **TRACK-01**: Reemplazar el óvalo actual (`ROAD_SPINE`) por el trazado fiel de Mónaco: horquilla Loews, Massenet, Casino, Mirabeau, Rascasse, túnel, chicana del puerto, Swimming Pool
+- [x] **TRACK-01**: Reemplazar el óvalo actual (`ROAD_SPINE`) por el trazado fiel de Mónaco: horquilla Loews, Massenet, Casino, Mirabeau, Rascasse, túnel, chicana del puerto, Swimming Pool
 - [ ] **TRACK-02**: Dibujar el entorno del circuito en Canvas 2D con bloques de color que representen: agua del puerto (azul), buildings/casino (gris/blanco), barreras armco (rojo/blanco), asfalto de boxes
 - [ ] **TRACK-03**: Implementar overlay del túnel: cuando el auto está en la zona del túnel, se dibuja un polígono oscuro (techo) por encima del auto en el canvas; al salir, el overlay desaparece
-- [ ] **TRACK-04**: Actualizar los 4 checkpoints (`CPS`) al nuevo trazado de Mónaco con posiciones relevantes al circuito real
+- [x] **TRACK-04**: Actualizar los 4 checkpoints (`CPS`) al nuevo trazado de Mónaco con posiciones relevantes al circuito real
 
 ### Múltiples Autos
 
@@ -68,6 +68,10 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 - [ ] **VFX-03**: Drama de overtake: al superar un rival, flash rojo en el auto superado + pausa de 0.3s + tono sintetizado ascendente; al ser superado, flash azul en el propio auto
 - [ ] **VFX-04**: Feedback mid-carrera en cruce de meta: mostrar tiempo de la vuelta completada vs récord personal (ej: "1:23.4 (+0.8s récord)" o "RÉCORD PERSONAL! -0.3s" en gold)
 - [ ] **VFX-05**: Pantalla de resultados siempre muestra mejor vuelta (con placeholder "--:--" si no hay registro aún)
+
+### Mecánicas de Carrera
+
+- [ ] **DRS-01**: Sistema DRS de una activación por vuelta. Condición: el jugador está a menos de 60px del auto de adelante al cruzar el punto de detección (inicio de recta principal). Cuando la condición se cumple, el HUD muestra "DRS DISPONIBLE"; al presionar **W** (WASD) / **↑** (flechas) / botón táctil dedicado en mobile, activa un boost de +25% de velocidad máxima por 3 segundos. Solo una activación por vuelta. La IA evalúa la misma condición y usa DRS automáticamente cuando está disponible. ⚠️ *Research al planificar: confirmar si W/↑ es el mejor mapping o si hay una alternativa más ergonómica dado el esquema de controles existente.*
 
 ### Grilla 2026
 
@@ -116,10 +120,10 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 | UI-04 | Phase 1 | Complete |
 | UI-05 | Phase 1 | Pending |
 | UI-06 | Phase 1 | Pending |
-| TRACK-01 | Phase 2 | Pending |
+| TRACK-01 | Phase 2 | Complete |
 | TRACK-02 | Phase 2 | Pending |
 | TRACK-03 | Phase 2 | Pending |
-| TRACK-04 | Phase 2 | Pending |
+| TRACK-04 | Phase 2 | Complete |
 | CARS-01 | Phase 2 | Pending |
 | CARS-02 | Phase 2 | Pending |
 | CARS-03 | Phase 2 | Pending |
@@ -135,11 +139,12 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 | VFX-03 | Phase 3 | Pending |
 | VFX-04 | Phase 3 | Pending |
 | VFX-05 | Phase 3 | Pending |
+| DRS-01 | Phase 3 | Pending |
 | UI-07 | Phase 3 | Pending |
 
 **Coverage:**
-- v2 requirements: 35 total
-- Mapped to phases: 35 / 35
+- v2 requirements: 36 total
+- Mapped to phases: 36 / 36
 - Unmapped: 0
 
 ---

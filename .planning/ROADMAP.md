@@ -61,7 +61,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — TRACK-01 + TRACK-04: geometría de Mónaco (ROAD_SPINE, waypoints, checkpoints)
+- [x] 02-02-PLAN.md — TRACK-01 + TRACK-04: geometría de Mónaco (ROAD_SPINE, waypoints, checkpoints)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
-| 2. Monaco + 4 Cars | 1/4 | In Progress | - |
+| 2. Monaco + 4 Cars | 2/4 | In Progress | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---

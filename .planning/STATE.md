@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 2
+current_plan: 3
 status: in_progress
-stopped_at: Completed 02-01-PLAN.md — CARS-01 refactor (local/remote → cars[] array)
-last_updated: "2026-06-27T23:35:00.000Z"
+stopped_at: Completed 02-02-PLAN.md — Monaco circuit geometry (ROAD_SPINE, AI_WAYPOINTS, CPS, START)
+last_updated: "2026-06-27T23:17:00.000Z"
 progress:
   total_phases: 17
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
-  percent: 12
+  completed_plans: 6
+  percent: 15
 ---
 
 # Project State
@@ -19,8 +19,8 @@ progress:
 ## Current Status
 
 **Active phase:** Phase 2 — Monaco + 4 Cars (IN PROGRESS)
-**Current plan:** 2
-**Last action:** Completed 02-01-PLAN.md — CARS-01 refactor: local/remote → cars[] array (4 cars in solo, 2 in multi)
+**Current plan:** 3
+**Last action:** Completed 02-02-PLAN.md — Monaco circuit geometry: ROAD_SPINE (34 pts), AI_WAYPOINTS (24 pts), CPS, START
 **Resumed:** 2026-06-27
 
 ## Project Reference
@@ -51,6 +51,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 01-03 | 01-foundation | 8 min | 2 | 3 |
 | 01-04 | 01-foundation | 8 min | 2 | 3 |
 | 02-01 | 02-monaco-4-cars | 35 min | 2 | 1 |
+| 02-02 | 02-monaco-4-cars | 4 min | 1 | 1 |
 
 ## Accumulated Context
 
@@ -60,6 +61,10 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - Monaco replaces the oval entirely — no track selector until v3
 - Build order is mandatory: Foundation → Monaco+Cars → AI+Polish (each phase unblocks the next)
 - `local`/`remote` refactored to `cars[]` array — COMPLETED in 02-01 (ba256de)
+- Monaco ROAD_SPINE (34 pts) replaces Buenos Aires oval — COMPLETED in 02-02 (290f261)
+- AI_WAYPOINTS: 24-point Monaco waypoints, AI_WP_REACH=30 — COMPLETED in 02-02 (290f261)
+- CPS: 4 Monaco checkpoints (Meta, Casino, Hairpin, Tunnel) — COMPLETED in 02-02 (290f261)
+- START: 2x2 grid on Monaco main straight — COMPLETED in 02-02 (290f261)
 - BUG-02 finish guard is symmetric for both host and guest paths through shared onMsg handler (verified, already correct)
 - BUG-04 lapStartTime correctly initialized at countdown→racing transition (verified, already correct)
 - Cadillac livery colors used from best available knowledge — user should verify at formula1.com
@@ -103,12 +108,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-27
-**Stopped at:** Completed 02-01-PLAN.md — CARS-01 refactor (cars[] array replacing local/remote)
-**Resume file:** None — proceed to 02-02-PLAN.md (TRACK-01 + TRACK-04: Monaco geometry)
+**Stopped at:** Completed 02-02-PLAN.md — Monaco geometry (ROAD_SPINE, AI_WAYPOINTS, CPS, START)
+**Resume file:** None — proceed to 02-03-PLAN.md (TRACK-02+03: Monaco environment drawing + tunnel overlay)
 
 ## Resume Instructions
 
-Phase 2 in progress. Next: execute 02-02-PLAN.md — Monaco circuit geometry (ROAD_SPINE, AI_WAYPOINTS, checkpoints).
+Phase 2 in progress. Next: execute 02-03-PLAN.md — Monaco environment drawing (harbour, casino, armco) and tunnel overlay.
 
 ---
 *State initialized: 2026-06-26*
