@@ -96,6 +96,39 @@ const RIVALS = [
   { name:'Max Verstappen',    team:'Red Bull Racing',   num:'1',  body:'#1d2f6a', accent:'#ffd700', helmet:'#cc1100', skill:0.96 },
 ];
 
+// ── AI Personalities (CARS-02) ────────────────────────────────────────────────
+// Three personality archetypes that modulate AI speed, line, noise, braking and damage.
+// Values are [ASSUMED] — require playtesting (Assumption A4).
+const PERSONALITIES = {
+  aggressive: {
+    style:     'aggressive',
+    speedMult: 1.05,   // 5% faster than skill-based speed
+    lineMult:  0.7,    // tighter line (closer to apex)
+    noiseAmp:  0.025,  // low noise — precise but risky
+    brakeMult: 0.8,    // brakes less than normal
+    damageMult:1.5,    // deals more damage on collision
+  },
+  defensive: {
+    style:     'defensive',
+    speedMult: 0.92,   // slightly slower
+    lineMult:  1.3,    // wider line through corners
+    noiseAmp:  0.04,   // moderate variation
+    brakeMult: 1.2,    // brakes earlier/harder
+    damageMult:0.8,    // absorbs collision better
+  },
+  consistent: {
+    style:     'consistent',
+    speedMult: 1.0,    // at-skill speed
+    lineMult:  1.0,    // standard line
+    noiseAmp:  0.02,   // very low noise
+    brakeMult: 1.0,    // standard braking
+    damageMult:1.0,    // standard damage
+  },
+};
+
+// All 6 collision pairs among 4 cars (CARS-03)
+const PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+
 function rivalDiff(skill) {
   if (skill >= 0.92) return { label: 'ÉLITE',    color: '#ef4444' };
   if (skill >= 0.88) return { label: 'EXPERTO',  color: '#f97316' };
@@ -201,7 +234,7 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
 let wasOnTrack      = true;
-let prevIsFirst     = true; // tracks position for overtake celebration
+let prevPlayerRank  = 4; // tracks player classification for overtake celebration (CARS-04)
 let shakeTimer      = null;
 let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 
@@ -765,17 +798,25 @@ function updateAI(car, dt) {
   if (car.finished) return;
 
   // Derive skill from car.rivalData (per-car) — never from selectedRival global
-  const skill    = car.rivalData ? car.rivalData.skill : 0.88;
-  const noiseAmp = 0.055 - skill * 0.038; // elite: ~0.017, medio: ~0.055
+  const skill = car.rivalData ? car.rivalData.skill : 0.88;
+
+  // Personality multipliers (CARS-02) — fallback to consistent if missing
+  const pers     = car.personality || PERSONALITIES.consistent;
+  const noiseAmp = pers.noiseAmp;  // personality-driven noise amplitude
 
   // Navigate using fine-grained AI_WAYPOINTS (stays on road) — per-car wpIdx
   const wp = AI_WAYPOINTS[car.wpIdx];
-  const dx = wp[0] - car.x, dy = wp[1] - car.y;
-  if (dx * dx + dy * dy < AI_WP_REACH * AI_WP_REACH) {
+  // Apply lineMult as a subtle lateral offset toward the apex (aggressive) or wider (defensive)
+  // lineMult < 1 → tighter line; lineMult > 1 → wider line; offset is small to keep AI on track
+  const lineOffset = (1.0 - pers.lineMult) * 5; // max ±5px lateral in world space
+  const wpDx = wp[0] - car.x + lineOffset * Math.cos(car.angle + Math.PI / 2);
+  const wpDy = wp[1] - car.y + lineOffset * Math.sin(car.angle + Math.PI / 2);
+
+  if (wpDx * wpDx + wpDy * wpDy < AI_WP_REACH * AI_WP_REACH) {
     car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length;
   }
 
-  const targetAngle = Math.atan2(dy, dx);
+  const targetAngle = Math.atan2(wpDy, wpDx);
   let diff = targetAngle - car.angle;
   while (diff >  Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
@@ -786,15 +827,17 @@ function updateAI(car, dt) {
   const noise    = (Math.random() - 0.5) * noiseAmp * dt;
   car.angle += Math.sign(diff) * Math.min(absDiff, maxTurn) + noise;
 
-  // Brake before sharp corners
+  // Brake before sharp corners — scale base factor (0.35) by personality brakeMult
   const braking  = absDiff > 0.65;
   const lapBonus = 1 + Math.min(car.lap, 2) * 0.04; // +4% per completed lap, max +8%
-  const aiMaxSpd = MAX_SPD_ON * skill * lapBonus * (braking ? 0.60 : 1.0);
+  // Apply personality speedMult to the AI's effective top speed (CARS-02)
+  const aiMaxSpd = MAX_SPD_ON * skill * pers.speedMult * lapBonus * (braking ? 0.60 : 1.0);
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;
   car.speed -= car.speed * FRICTION_K * dt;
-  if (braking) car.speed -= BRAKE_FORCE * 0.35 * dt;
+  // brakeMult scales the base 0.35 factor — NOTE: 0.35 base intentional (AI-01/Phase 3 will raise to 0.70)
+  if (braking) car.speed -= BRAKE_FORCE * 0.35 * pers.brakeMult * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   car.x += Math.cos(car.angle) * car.speed * dt;
@@ -802,7 +845,7 @@ function updateAI(car, dt) {
 }
 
 // ── HUD update ────────────────────────────────────────────────────────────────
-// CARS-04: clasificacion P1-P4 completa en 02-04
+// CARS-04: clasificacion P1-P4 en tiempo real con desempate por distancia al CP
 function updateHUD() {
   if (!cars[0]) return;
   const lap = Math.min(cars[0].lap + 1, TOTAL_LAPS);
@@ -811,17 +854,32 @@ function updateHUD() {
   // nextCP=0 means approaching finish line — worth CPS.length to avoid false 2nd
   const cpScore = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
 
-  // Rank all cars — player is cars[0]
-  const playerScore = cpScore(cars[0]);
-  const isFirst = cars.every((c, i) => i === 0 || cpScore(c) <= playerScore);
-  hudPos.textContent = isFirst ? '1°' : '2°';
+  // Rank all cars by cpScore (highest = ahead), tiebreak by euclidean distance to next CP
+  // (shorter distance = physically more ahead → ranks higher — Pitfall 6 fix)
+  const ranked = cars
+    .map((c, i) => {
+      const score = cpScore(c);
+      const cp = CPS[c.nextCP] || CPS[0];
+      const distToCP = Math.sqrt((c.x - cp.x) ** 2 + (c.y - cp.y) ** 2);
+      return { i, score, distToCP };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score; // higher score = ahead
+      return a.distToCP - b.distToCP;                    // tiebreak: closer to CP = ahead
+    });
 
-  // Overtake celebration
-  if (isFirst && !prevIsFirst) addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
-  prevIsFirst = isFirst;
+  const playerRank = ranked.findIndex(r => r.i === 0) + 1; // 1-based
+  hudPos.textContent = `P${playerRank}`;
+
+  // Overtake detection — player moved up in classification
+  if (playerRank < prevPlayerRank) {
+    addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+  }
+  prevPlayerRank = playerRank;
 
   if (gameMode === 'solo') {
-    // Find the car directly ahead of the player (highest score > playerScore, or best of the rest)
+    // Gap display: find the car immediately ahead of the player in ranking
+    const playerScore = cpScore(cars[0]);
     const rivals = cars.slice(1);
     if (rivals.length > 0) {
       const myP = playerScore;
@@ -848,7 +906,7 @@ function updateHUD() {
       hudRole.style.padding      = '1px 5px';
     }
   } else {
-    hudRole.textContent      = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
+    hudRole.textContent      = isHost ? 'HOST' : 'GUEST';
     hudRole.style.color      = '';
     hudRole.style.background = '';
     hudRole.style.padding    = '';
@@ -992,10 +1050,11 @@ function loop(ts) {
         checkCheckpoints(car);
       });
 
-      // Car-car collision: player vs cars[1] only in this plan
-      // CARS-03: extender a 6 pares en 02-04
-      const a = cars[0], b = cars[1];
-      if (!a.finished && !b.finished) {
+      // Car-car collision: all 6 pairs among 4 cars (CARS-03)
+      PAIRS.forEach(([i, j]) => {
+        const a = cars[i], b = cars[j];
+        if (!a || !b || a.finished || b.finished) return;
+        // Compute approach velocity before resolving (used for damage scaling)
         const dx = b.x - a.x, dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
         const nx = dx / dist, ny = dy / dist;
@@ -1003,12 +1062,25 @@ function loop(ts) {
         const vB = Math.cos(b.angle) * b.speed * nx + Math.sin(b.angle) * b.speed * ny;
         if (resolveCarCollision(a, b)) {
           const relV = Math.abs(vA - vB);
-          const playerIsAggressor = vA > vB + 5;
           const baseDmg = Math.min(6, 1 + relV * 0.02);
-          cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15));
-          playCollisionSound();
+          // Only player (cars[0]) accumulates damage for HUD display
+          if (i === 0) {
+            // cars[j] hit cars[0]: scale damage by AI's damageMult (aggressive hits harder)
+            const aiDamageMult = (b.personality ? b.personality.damageMult : 1.0);
+            const playerIsAggressor = vA > vB + 5;
+            cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
+            playCollisionSound();
+          } else if (j === 0) {
+            // cars[i] hit cars[0]: scale damage by AI's damageMult
+            const aiDamageMult = (a.personality ? a.personality.damageMult : 1.0);
+            const playerIsAggressor = vB > vA + 5;
+            cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
+            playCollisionSound();
+          }
+          // AI vs AI collisions: play sound only if close to player (optional ambience)
+          // No damage accumulation for AI-vs-AI pairs
         }
-      }
+      });
     } else {
       // Multiplayer: update only cars[0] (local player), cars[1] updated via onMsg
       updateCar(cars[0], dt, cars[0].damage);
@@ -1242,13 +1314,16 @@ function resetGame() {
       if (!seen.has(i)) { seen.add(i); aiIndices.push(i); }
     }
 
+    // Assign one personality per AI car — one of each type per race (CARS-02)
+    const personalityOrder = ['aggressive', 'defensive', 'consistent'];
+
     cars = [
       // cars[0] — player (Colapinto)
-      Object.assign(makeCar(0), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null }),
-      // cars[1–3] — AI opponents with staggered waypoints
-      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[0]] }),
-      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 2, rivalData: RIVALS[aiIndices[1]] }),
-      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 4, rivalData: RIVALS[aiIndices[2]] }),
+      Object.assign(makeCar(0), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null, personality: null }),
+      // cars[1–3] — AI opponents with staggered waypoints and distinct personalities
+      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[0]], personality: PERSONALITIES[personalityOrder[0]] }),
+      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 2, rivalData: RIVALS[aiIndices[1]], personality: PERSONALITIES[personalityOrder[1]] }),
+      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 4, rivalData: RIVALS[aiIndices[2]], personality: PERSONALITIES[personalityOrder[2]] }),
     ];
   } else {
     // Multi: 2 cars — local player + remote peer
@@ -1284,7 +1359,7 @@ function resetGame() {
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
-  prevIsFirst        = true;
+  prevPlayerRank     = 4;  // initialise to last place — CARS-04 HUD P1-P4
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }
