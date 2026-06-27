@@ -42,11 +42,13 @@ const CPS = [
   { x:  90, y: 330, r: 76 },  // 3 left straight mid
 ];
 
-// Starting grid [host, guest] — main straight, pointing east (angle 0)
+// Starting grid [P1, P2, P3, P4] — main straight, 2×2 formation, pointing east (angle 0)
 // Positioned well west of the first corner so player has time to react
 const START = [
-  { x: 185, y: 525, a: 0 },
-  { x: 158, y: 525, a: 0 },
+  { x: 185, y: 521, a: 0 },  // P1 — player (left column, front row)
+  { x: 155, y: 521, a: 0 },  // P2 — AI car 1 (left column, back row)
+  { x: 185, y: 529, a: 0 },  // P3 — AI car 2 (right column, front row)
+  { x: 155, y: 529, a: 0 },  // P4 — AI car 3 (right column, back row)
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -155,14 +157,18 @@ const keys = { left: false, right: false, down: false };
 
 function makeCar(idx) {
   const s = START[idx];
-  return { x: s.x, y: s.y, angle: s.a, speed: 0, lap: 0, nextCP: 1, finished: false };
+  return {
+    x: s.x, y: s.y, angle: s.a, speed: 0,
+    lap: 0, nextCP: 1, finished: false,
+    isPlayer: false,   // true only for cars[0]
+    damage: 0,         // 0–100 accumulated damage (per-car)
+    wpIdx: 0,          // AI waypoint index (per-car, independent navigation)
+    rivalData: null,   // RIVALS entry for style/skill (null for player)
+  };
 }
 
-let local  = makeCar(0);
-let remote = Object.assign(makeCar(1), {
-  prevX: START[1].x, prevY: START[1].y, prevAngle: START[1].a,
-  lastUpdate: 0,
-});
+// cars[] replaces local/remote: length 4 in solo mode, length 2 in multi mode
+let cars = [];
 
 let countdown   = 3;
 let cdTimer     = 0;
@@ -170,9 +176,7 @@ let lastNetSend = 0;
 let lastTime    = 0;
 let rafId       = null;
 let loopRunning = false;
-let winner      = null;  // 'local' | 'remote'
-let localDamage = 0;     // 0–100 accumulated damage
-let aiWpIdx     = 0;     // AI waypoint index
+let winner      = null;  // numeric index 0-3 into cars[], or null
 
 // Lap timing & records
 let lapStartTime  = 0;        // performance.now() when current lap began
@@ -433,14 +437,26 @@ function drawTrack() {
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
-function carStyle(styleIdx) {
-  if (styleIdx === 0) return CAR_STYLE_HOST;
-  const r = selectedRival;
-  return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', helmet: r.helmet, num: r.num };
+// carStyle(car, carIdx): derives visual style from car object or index
+// cars[0] = player (CAR_STYLE_HOST); cars[1-3] = AI derived from car.rivalData
+function carStyle(car, carIdx) {
+  if (carIdx === 0) return CAR_STYLE_HOST;
+  // In multiplayer, cars[1] is the remote player — use selected rival style
+  if (gameMode === 'multi' && carIdx === 1) {
+    const r = selectedRival;
+    return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', helmet: r.helmet, num: r.num };
+  }
+  // AI cars: derive style from rivalData stored on the car
+  if (car && car.rivalData) {
+    const r = car.rivalData;
+    return { body: r.body, stripe: r.accent, cockpit: '#0d0d0d', helmet: r.helmet, num: r.num };
+  }
+  // Fallback
+  return { body: '#444', stripe: '#888', cockpit: '#0d0d0d', helmet: '#555', num: '?' };
 }
 
-function drawCar(car, styleIdx) {
-  const s   = carStyle(styleIdx);
+function drawCar(car, carIdx) {
+  const s   = carStyle(car, carIdx);
   const sp  = project(car.x, car.y);
   const θ   = car.angle + Math.PI / 2;
   const COS = Math.cos(θ), SIN = Math.sin(θ);
@@ -520,14 +536,16 @@ function drawCar(car, styleIdx) {
   }
 }
 
-// ── Remote car interpolation ───────────────────────────────────────────────────
+// ── Remote car interpolation (multiplayer only — reads cars[1]) ───────────────
 function remoteRenderPos() {
-  const age = (performance.now() - remote.lastUpdate) / 1000;
+  const r = cars[1];
+  if (!r) return { x: 0, y: 0, angle: 0 };
+  const age = (performance.now() - r.lastUpdate) / 1000;
   // Simple dead-reckoning from last known state
   return {
-    x:     remote.x + Math.cos(remote.angle) * remote.speed * Math.min(age, 0.15),
-    y:     remote.y + Math.sin(remote.angle) * remote.speed * Math.min(age, 0.15),
-    angle: remote.angle,
+    x:     r.x + Math.cos(r.angle) * r.speed * Math.min(age, 0.15),
+    y:     r.y + Math.sin(r.angle) * r.speed * Math.min(age, 0.15),
+    angle: r.angle,
   };
 }
 
@@ -575,7 +593,7 @@ function checkCheckpoints(car) {
   const dx = car.x - cp.x, dy = car.y - cp.y;
   if (dx * dx + dy * dy < cp.r * cp.r) {
     if (car.nextCP === 0) {
-      if (car === local) {
+      if (car.isPlayer) {
         cpFlash = 0.30;
         if (lapStartTime > 0) {
           lastLapMs = performance.now() - lapStartTime;
@@ -600,7 +618,7 @@ function checkCheckpoints(car) {
         car.finished = true;
         return;
       }
-    } else if (car === local) {
+    } else if (car.isPlayer) {
       cpFlash = 0.12;
     }
     car.nextCP = (car.nextCP + 1) % CPS.length;
@@ -618,15 +636,15 @@ function updateCar(car, dt, damage = 0) {
   car.speed += AUTO_ACCEL * dt;
   // Friction
   car.speed -= car.speed * FRICTION_K * dt;
-  // Brake (keyboard ↓ or touch)
-  if (keys.down) car.speed -= BRAKE_FORCE * dt;
+  // Brake (keyboard ↓ or touch) — only player car responds to input
+  if (car.isPlayer && keys.down) car.speed -= BRAKE_FORCE * dt;
   // Clamp
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
-  // Steering (rate scales with speed so it feels natural)
+  // Steering (rate scales with speed so it feels natural) — only player car steers
   const turnFactor = Math.min(1, 0.45 + car.speed / MAX_SPD_ON * 0.55);
-  if (keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
-  if (keys.right) car.angle += TURN_RATE * turnFactor * dt;
+  if (car.isPlayer && keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
+  if (car.isPlayer && keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
   // Move
   car.x += Math.cos(car.angle) * car.speed * dt;
@@ -639,14 +657,15 @@ const AI_WP_REACH = 45; // px radius to advance to next waypoint
 function updateAI(car, dt) {
   if (car.finished) return;
 
-  const skill    = selectedRival ? selectedRival.skill : 0.88;
+  // Derive skill from car.rivalData (per-car) — never from selectedRival global
+  const skill    = car.rivalData ? car.rivalData.skill : 0.88;
   const noiseAmp = 0.055 - skill * 0.038; // elite: ~0.017, medio: ~0.055
 
-  // Navigate using fine-grained AI_WAYPOINTS (stays on road)
-  const wp = AI_WAYPOINTS[aiWpIdx];
+  // Navigate using fine-grained AI_WAYPOINTS (stays on road) — per-car wpIdx
+  const wp = AI_WAYPOINTS[car.wpIdx];
   const dx = wp[0] - car.x, dy = wp[1] - car.y;
   if (dx * dx + dy * dy < AI_WP_REACH * AI_WP_REACH) {
-    aiWpIdx = (aiWpIdx + 1) % AI_WAYPOINTS.length;
+    car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length;
   }
 
   const targetAngle = Math.atan2(dy, dx);
@@ -676,37 +695,51 @@ function updateAI(car, dt) {
 }
 
 // ── HUD update ────────────────────────────────────────────────────────────────
+// CARS-04: clasificacion P1-P4 completa en 02-04
 function updateHUD() {
-  const lap = Math.min(local.lap + 1, TOTAL_LAPS);
+  if (!cars[0]) return;
+  const lap = Math.min(cars[0].lap + 1, TOTAL_LAPS);
   hudLap.textContent = `VUELTA ${lap}/${TOTAL_LAPS}`;
 
   // nextCP=0 means approaching finish line — worth CPS.length to avoid false 2nd
   const cpScore = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
-  const isFirst = cpScore(local) >= cpScore(remote);
+
+  // Rank all cars — player is cars[0]
+  const playerScore = cpScore(cars[0]);
+  const isFirst = cars.every((c, i) => i === 0 || cpScore(c) <= playerScore);
   hudPos.textContent = isFirst ? '1°' : '2°';
 
   // Overtake celebration
   if (isFirst && !prevIsFirst) addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
   prevIsFirst = isFirst;
 
-  if (gameMode === 'solo' && selectedRival) {
-    const myP = cpScore(local), itsP = cpScore(remote);
-    const diff = myP - itsP;
-    let gapText, gapColor;
-    if (Math.abs(diff) < 0.5) {
-      const dist = Math.sqrt((local.x - remote.x) ** 2 + (local.y - remote.y) ** 2);
-      gapText  = `~${(dist / 190).toFixed(1)}s`;
-      gapColor = '#94a3b8';
-    } else {
-      const secs = (Math.abs(diff) * 1.4).toFixed(1);
-      gapText  = diff > 0 ? `+${secs}s` : `-${secs}s`;
-      gapColor = diff > 0 ? '#10b981' : '#ef4444';
+  if (gameMode === 'solo') {
+    // Find the car directly ahead of the player (highest score > playerScore, or best of the rest)
+    const rivals = cars.slice(1);
+    if (rivals.length > 0) {
+      const myP = playerScore;
+      // Find nearest rival (closest cpScore)
+      const nearestRival = rivals.reduce((best, c) => {
+        return Math.abs(cpScore(c) - myP) < Math.abs(cpScore(best) - myP) ? c : best;
+      }, rivals[0]);
+      const itsP = cpScore(nearestRival);
+      const diff = myP - itsP;
+      let gapText, gapColor;
+      if (Math.abs(diff) < 0.5) {
+        const dist = Math.sqrt((cars[0].x - nearestRival.x) ** 2 + (cars[0].y - nearestRival.y) ** 2);
+        gapText  = `~${(dist / 190).toFixed(1)}s`;
+        gapColor = '#94a3b8';
+      } else {
+        const secs = (Math.abs(diff) * 1.4).toFixed(1);
+        gapText  = diff > 0 ? `+${secs}s` : `-${secs}s`;
+        gapColor = diff > 0 ? '#10b981' : '#ef4444';
+      }
+      hudRole.textContent        = gapText;
+      hudRole.style.color        = gapColor;
+      hudRole.style.background   = 'rgba(0,0,0,0.45)';
+      hudRole.style.borderRadius = '4px';
+      hudRole.style.padding      = '1px 5px';
     }
-    hudRole.textContent        = gapText;
-    hudRole.style.color        = gapColor;
-    hudRole.style.background   = 'rgba(0,0,0,0.45)';
-    hudRole.style.borderRadius = '4px';
-    hudRole.style.padding      = '1px 5px';
   } else {
     hudRole.textContent      = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
     hudRole.style.color      = '';
@@ -811,6 +844,7 @@ function drawFloatingTexts(dt) {
 }
 
 // ── Main game loop ─────────────────────────────────────────────────────────────
+// CARS-03: extender a 6 pares en 02-04
 function loop(ts) {
   if (!loopRunning) return;
   const dt = lastTime === 0 ? 0.016 : Math.min((ts - lastTime) / 1000, 0.05);
@@ -819,8 +853,13 @@ function loop(ts) {
   if (phase === 'countdown') {
     cdTimer -= dt;
     drawTrack();
-    drawCar(remote, isHost ? 1 : 0);
-    drawCar(local,  isHost ? 0 : 1);
+    // Draw all cars in countdown (back to front)
+    if (gameMode === 'solo') {
+      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
+    } else {
+      drawCar(cars[1], 1);
+      drawCar(cars[0], 0);
+    }
     drawCountdown(countdown);
 
     if (cdTimer <= 0) {
@@ -834,60 +873,78 @@ function loop(ts) {
       }
     }
   } else if (phase === 'racing') {
-    updateCar(local, dt, localDamage);
-    checkCheckpoints(local);
-    updateHUD();
 
-    // AI update (solo mode) or broadcast position (multi)
     if (gameMode === 'solo') {
-      updateAI(remote, dt);
-      checkCheckpoints(remote);
-    } else if (ts - lastNetSend >= NET_MS) {
-      lastNetSend = ts;
-      Net.send({
-        type: 'pos',
-        x: local.x, y: local.y, angle: local.angle,
-        speed: local.speed, lap: local.lap, cp: local.nextCP,
+      // Update all 4 cars
+      cars.forEach(car => {
+        if (car.isPlayer) {
+          updateCar(car, dt, car.damage);
+        } else {
+          updateAI(car, dt);
+        }
+        checkCheckpoints(car);
       });
-    }
 
-    // Car-car collision (solo only)
-    if (gameMode === 'solo') {
-      const dx = remote.x - local.x, dy = remote.y - local.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const nx = dx / dist, ny = dy / dist;
-      // Relative approach speed along collision normal
-      const vLocal  = Math.cos(local.angle)  * local.speed  * nx + Math.sin(local.angle)  * local.speed  * ny;
-      const vRemote = Math.cos(remote.angle) * remote.speed * nx + Math.sin(remote.angle) * remote.speed * ny;
-      if (resolveCarCollision(local, remote)) {
-        const relV = Math.abs(vLocal - vRemote);
-        // Threshold 5 (not 10) to better catch side impacts as CPU-initiated
-        const playerIsAggressor = vLocal > vRemote + 5;
-        const baseDmg = Math.min(6, 1 + relV * 0.02);
-        localDamage = Math.min(100, localDamage + (playerIsAggressor ? baseDmg : baseDmg * 0.15));
-        playCollisionSound();
+      // Car-car collision: player vs cars[1] only in this plan
+      // CARS-03: extender a 6 pares en 02-04
+      const a = cars[0], b = cars[1];
+      if (!a.finished && !b.finished) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nx = dx / dist, ny = dy / dist;
+        const vA = Math.cos(a.angle) * a.speed * nx + Math.sin(a.angle) * a.speed * ny;
+        const vB = Math.cos(b.angle) * b.speed * nx + Math.sin(b.angle) * b.speed * ny;
+        if (resolveCarCollision(a, b)) {
+          const relV = Math.abs(vA - vB);
+          const playerIsAggressor = vA > vB + 5;
+          const baseDmg = Math.min(6, 1 + relV * 0.02);
+          cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15));
+          playCollisionSound();
+        }
+      }
+    } else {
+      // Multiplayer: update only cars[0] (local player), cars[1] updated via onMsg
+      updateCar(cars[0], dt, cars[0].damage);
+      checkCheckpoints(cars[0]);
+
+      // Broadcast position
+      if (ts - lastNetSend >= NET_MS) {
+        lastNetSend = ts;
+        Net.send({
+          type: 'pos',
+          x: cars[0].x, y: cars[0].y, angle: cars[0].angle,
+          speed: cars[0].speed, lap: cars[0].lap, cp: cars[0].nextCP,
+        });
       }
     }
 
-    // Engine pitch tracks speed
-    updateEnginePitch(local.speed);
-    // Brake squeal
-    if (keys.down && local.speed > 20) startBrakeSound();
+    updateHUD();
+
+    // Engine pitch tracks player speed
+    updateEnginePitch(cars[0].speed);
+    // Brake squeal (player only)
+    if (keys.down && cars[0].speed > 20) startBrakeSound();
     else stopBrakeSound();
 
-    // Render
-    const rp = gameMode === 'solo' ? remote : remoteRenderPos();
+    // Render — draw back-to-front so player (cars[0]) is on top
     drawTrack();
-    drawCar({ ...rp, finished: remote.finished }, isHost ? 1 : 0);
-    drawCar(local, isHost ? 0 : 1);
+    if (gameMode === 'solo') {
+      // Draw in reverse order: cars[3], cars[2], cars[1], cars[0]
+      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
+    } else {
+      // Multiplayer: interpolate remote car position
+      const rp = remoteRenderPos();
+      drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
+      drawCar(cars[0], 0);
+    }
 
-    // Off-track feedback + damage
-    const onTrk = isOnTrack(local.x, local.y);
+    // Off-track feedback + damage (player car only)
+    const onTrk = isOnTrack(cars[0].x, cars[0].y);
     if (!onTrk) {
       drawOffTrackVignette(0.55);
-      localDamage = Math.min(100, localDamage + 1.5 * dt);
+      cars[0].damage = Math.min(100, cars[0].damage + 1.5 * dt);
       if (wasOnTrack) {
-        localDamage = Math.min(100, localDamage + 3);
+        cars[0].damage = Math.min(100, cars[0].damage + 3);
         clearTimeout(shakeTimer);
         canvasWrap.classList.remove('shake');
         void canvasWrap.offsetWidth;
@@ -900,8 +957,8 @@ function loop(ts) {
     // Checkpoint flash (green border sweep)
     if (cpFlash > 0) {
       cpFlash -= dt;
-      const a = Math.min(1, cpFlash * 6);
-      ctx.strokeStyle = `rgba(16,185,129,${a * 0.7})`;
+      const a2 = Math.min(1, cpFlash * 6);
+      ctx.strokeStyle = `rgba(16,185,129,${a2 * 0.7})`;
       ctx.lineWidth = 10;
       ctx.strokeRect(5, 5, 470, 630);
     }
@@ -909,17 +966,17 @@ function loop(ts) {
     // Floating text overlays
     drawFloatingTexts(dt);
 
-    // Damage warning at 60% / 80%
-    if (localDamage >= 60 && damageWarningShown < 60) {
+    // Damage warning at 60% / 80% (player only)
+    if (cars[0].damage >= 60 && damageWarningShown < 60) {
       damageWarningShown = 60;
       addFloatingText('⚠ DAÑO ALTO', '#f97316', 240, 200, 18);
-    } else if (localDamage >= 80 && damageWarningShown < 80) {
+    } else if (cars[0].damage >= 80 && damageWarningShown < 80) {
       damageWarningShown = 80;
       addFloatingText('⛔ COCHE CRÍTICO', '#ef4444', 240, 200, 20);
     }
 
     // Damage bar drawn last so it's always on top
-    drawDamageBar(localDamage);
+    drawDamageBar(cars[0].damage);
 
     // Lap timer HUD
     if (lapStartTime > 0) {
@@ -930,23 +987,31 @@ function loop(ts) {
     }
 
     // Win / total-damage check
-    if (!winner) {
-      if (localDamage >= 100) {
-        winner = 'remote'; stopEngine(); stopBrakeSound(); phase = 'done';
-      } else if (local.finished) {
-        winner = 'local'; stopEngine(); stopBrakeSound();
-        if (gameMode === 'multi') Net.send({ type: 'finish' });
-        phase = 'done';
-      } else if (gameMode === 'solo' && remote.finished) {
-        winner = 'remote'; stopEngine(); stopBrakeSound(); phase = 'done';
+    if (winner === null) {
+      if (cars[0].damage >= 100) {
+        // Player destroyed — first AI that hasn't finished wins, or cars[1]
+        winner = 1; stopEngine(); stopBrakeSound(); phase = 'done';
+      } else {
+        for (let i = 0; i < cars.length; i++) {
+          if (cars[i].finished) { winner = i; break; }
+        }
+        if (winner !== null) {
+          stopEngine(); stopBrakeSound();
+          if (gameMode === 'multi' && winner === 0) Net.send({ type: 'finish' });
+          phase = 'done';
+        }
       }
     }
   } else if (phase === 'done') {
-    const rp = gameMode === 'solo' ? remote : remoteRenderPos();
     drawTrack();
-    drawCar({ ...rp }, isHost ? 1 : 0);
-    drawCar(local, isHost ? 0 : 1);
-    drawWin(winner === 'local');
+    if (gameMode === 'solo') {
+      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
+    } else {
+      const rp = remoteRenderPos();
+      drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
+      drawCar(cars[0], 0);
+    }
+    drawWin(winner === 0);
   }
 
   rafId = requestAnimationFrame(loop);
@@ -989,24 +1054,26 @@ function onMsg(data) {
     if (!isFinite(speed) || speed < 0 || speed > MAX_SPD_ON * 1.5) return;
     if (typeof lap !== 'number' || lap < 0 || lap > TOTAL_LAPS) return;
     if (typeof cp  !== 'number' || cp  < 0 || cp  >= CPS.length) return;
-    remote.prevX      = remote.x;
-    remote.prevY      = remote.y;
-    remote.prevAngle  = remote.angle;
-    remote.x          = x;
-    remote.y          = y;
-    remote.angle      = normalizedAngle;
-    remote.speed      = speed;
-    remote.lap        = lap;
-    remote.nextCP     = cp;
-    remote.lastUpdate = performance.now();
+    // Multiplayer: remote car lives in cars[1]
+    if (!cars[1]) return;
+    cars[1].prevX      = cars[1].x;
+    cars[1].prevY      = cars[1].y;
+    cars[1].prevAngle  = cars[1].angle;
+    cars[1].x          = x;
+    cars[1].y          = y;
+    cars[1].angle      = normalizedAngle;
+    cars[1].speed      = speed;
+    cars[1].lap        = lap;
+    cars[1].nextCP     = cp;
+    cars[1].lastUpdate = performance.now();
   }
 
   if (data.type === 'finish' && !winner) {
     // BUG-02: guard prevents premature win via spoofed finish message (T-01-01 threat mitigation)
-    // remote.lap is the sender's lap — both host-receives-finish and guest-receives-finish paths
+    // cars[1].lap is the sender's lap — both host-receives-finish and guest-receives-finish paths
     // check this same guard, making it symmetric for both peers.
-    if (remote.lap < TOTAL_LAPS) return;
-    winner = 'remote';
+    if (!cars[1] || cars[1].lap < TOTAL_LAPS) return;
+    winner = 1;
     phase  = 'done';
   }
 
@@ -1034,11 +1101,55 @@ function onDisconnect() {
 
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
 function resetGame() {
-  local  = makeCar(isHost ? 0 : 1);
-  remote = Object.assign(makeCar(isHost ? 1 : 0), {
-    prevX: START[isHost ? 1 : 0].x, prevY: START[isHost ? 1 : 0].y,
-    prevAngle: START[isHost ? 1 : 0].a, lastUpdate: 0,
-  });
+  if (gameMode === 'solo') {
+    // Solo: 4 cars — player + 3 AI opponents
+    // Select 3 AI rivals bracketing the selected rival's skill
+    const pivotIdx = selectedRivalIdx;
+    const candidateIndices = [
+      pivotIdx,
+      Math.max(0, pivotIdx - 1),
+      Math.min(RIVALS.length - 1, pivotIdx + 1),
+      Math.min(RIVALS.length - 1, pivotIdx + 2),
+    ];
+    // Deduplicate, exclude duplicate of same rival (keep selected + 2 different neighbors)
+    const seen = new Set();
+    const aiIndices = [];
+    // Always include the selected rival first, then unique neighbors
+    for (const idx of candidateIndices) {
+      if (!seen.has(idx) && aiIndices.length < 3) {
+        seen.add(idx);
+        aiIndices.push(idx);
+      }
+    }
+    // If we still don't have 3 (e.g. at edge of array), fill from RIVALS
+    for (let i = 0; aiIndices.length < 3 && i < RIVALS.length; i++) {
+      if (!seen.has(i)) { seen.add(i); aiIndices.push(i); }
+    }
+
+    cars = [
+      // cars[0] — player (Colapinto)
+      Object.assign(makeCar(0), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null }),
+      // cars[1–3] — AI opponents with staggered waypoints
+      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[0]] }),
+      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 2, rivalData: RIVALS[aiIndices[1]] }),
+      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 4, rivalData: RIVALS[aiIndices[2]] }),
+    ];
+  } else {
+    // Multi: 2 cars — local player + remote peer
+    const localIdx  = isHost ? 0 : 1;
+    const remoteIdx = isHost ? 1 : 0;
+    cars = [
+      // cars[0] — local player
+      Object.assign(makeCar(localIdx), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null }),
+      // cars[1] — remote peer (includes net interpolation fields)
+      Object.assign(makeCar(remoteIdx), {
+        isPlayer: false, damage: 0, wpIdx: 0, rivalData: null,
+        prevX: START[remoteIdx].x, prevY: START[remoteIdx].y,
+        prevAngle: START[remoteIdx].a, lastUpdate: 0,
+      }),
+    ];
+  }
+
   winner           = null;
   countdown        = 3;
   cdTimer          = 1;
@@ -1054,8 +1165,6 @@ function resetGame() {
   hudTimer.classList.remove('record');
   hudRole.textContent  = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
   hudRole.style.color = ''; hudRole.style.background = ''; hudRole.style.padding = '';
-  localDamage        = 0;
-  aiWpIdx            = 0;
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
@@ -1343,9 +1452,9 @@ document.getElementById('btn-menu').addEventListener('click', () => {
 // Show results screen when game ends (poll phase)
 let resultPollId = null;
 function pollResults() {
-  if (phase === 'done' && winner) {
+  if (phase === 'done' && winner !== null) {
     stopLoop();
-    const won = winner === 'local';
+    const won = winner === 0;  // player wins if winner index is 0 (cars[0])
     document.getElementById('result-icon').textContent  = won ? '🏆' : '💨';
     document.getElementById('result-title').textContent = won ? '¡VAMOS COLAPINTO!' : '¡BUEN INTENTO!';
     if (gameMode === 'solo' && selectedRival) {
