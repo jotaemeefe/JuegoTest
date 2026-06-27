@@ -392,14 +392,107 @@ function drawSpinePath() {
   });
 }
 
+// ── Tunnel zone (world-space bounding box covering the tunnel segment) ─────────
+// ROAD_SPINE tunnel: Portier [310,265] → [320,295] → [370,310] → [420,315] → [440,305]
+// Extended slightly to cover the full tunnel visual section.
+const TUNNEL_ZONE = { x1: 295, y1: 255, x2: 450, y2: 330 };
+
+function drawTunnelRoof() {
+  // Update car.inTunnel flag for each car (used by audio in Phase 3)
+  cars.forEach(car => {
+    car.inTunnel = (car.x >= TUNNEL_ZONE.x1 && car.x <= TUNNEL_ZONE.x2 &&
+                    car.y >= TUNNEL_ZONE.y1 && car.y <= TUNNEL_ZONE.y2);
+  });
+
+  // Project the 4 corners of the tunnel bounding box into screen space
+  const tl = project(TUNNEL_ZONE.x1, TUNNEL_ZONE.y1);
+  const tr = project(TUNNEL_ZONE.x2, TUNNEL_ZONE.y1);
+  const br = project(TUNNEL_ZONE.x2, TUNNEL_ZONE.y2);
+  const bl = project(TUNNEL_ZONE.x1, TUNNEL_ZONE.y2);
+
+  ctx.save();
+  ctx.globalAlpha = 0.68;
+  ctx.fillStyle = '#0d0d1a';
+  ctx.beginPath();
+  ctx.moveTo(tl.x, tl.y);
+  ctx.lineTo(tr.x, tr.y);
+  ctx.lineTo(br.x, br.y);
+  ctx.lineTo(bl.x, bl.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 function drawTrack() {
-  // Ground
-  ctx.fillStyle = '#1a4a10';
+  // Ground — Monaco city grey (replaces green)
+  ctx.fillStyle = '#3a3a4a';
   ctx.fillRect(0, 0, 480, 640);
 
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  // Kerb — dashed, slightly wider than tarmac
+  // ── Monaco environment colour blocks (drawn before tarmac so spine paints over) ──
+
+  // Harbour water — blue area at the bottom-right (Swimming Pool / harbour zone)
+  // World-space harbour: roughly x:330-460, y:280-500
+  ctx.save();
+  ctx.fillStyle = '#1a4a7a';
+  const hw_tl = project(330, 280), hw_tr = project(460, 280);
+  const hw_br = project(460, 510), hw_bl = project(330, 510);
+  ctx.beginPath();
+  ctx.moveTo(hw_tl.x, hw_tl.y);
+  ctx.lineTo(hw_tr.x, hw_tr.y);
+  ctx.lineTo(hw_br.x, hw_br.y);
+  ctx.lineTo(hw_bl.x, hw_bl.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Casino / Mirabeau building block — upper-right area (Casino plateau zone)
+  // World-space casino: roughly x:280-420, y:195-340
+  ctx.save();
+  ctx.fillStyle = '#c8c8c4';
+  const cb_tl = project(280, 195), cb_tr = project(420, 195);
+  const cb_br = project(420, 345), cb_bl = project(280, 345);
+  ctx.beginPath();
+  ctx.moveTo(cb_tl.x, cb_tl.y);
+  ctx.lineTo(cb_tr.x, cb_tr.y);
+  ctx.lineTo(cb_br.x, cb_br.y);
+  ctx.lineTo(cb_bl.x, cb_bl.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Hairpin inner area — darker block to emphasise the U-turn
+  ctx.save();
+  ctx.fillStyle = '#2a2a3a';
+  const hp_tl = project(335, 160), hp_tr = project(425, 160);
+  const hp_br = project(425, 215), hp_bl = project(335, 215);
+  ctx.beginPath();
+  ctx.moveTo(hp_tl.x, hp_tl.y);
+  ctx.lineTo(hp_tr.x, hp_tr.y);
+  ctx.lineTo(hp_br.x, hp_br.y);
+  ctx.lineTo(hp_bl.x, hp_bl.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Pit lane strip — dark tarmac alongside the main straight (south of spine)
+  // World-space pit: x:60-250, y:558-580
+  ctx.save();
+  ctx.fillStyle = '#1a1a1a';
+  const pl_tl = project(60, 558), pl_tr = project(250, 558);
+  const pl_br = project(250, 578), pl_bl = project(60, 578);
+  ctx.beginPath();
+  ctx.moveTo(pl_tl.x, pl_tl.y);
+  ctx.lineTo(pl_tr.x, pl_tr.y);
+  ctx.lineTo(pl_br.x, pl_br.y);
+  ctx.lineTo(pl_bl.x, pl_bl.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // ── Kerb — dashed, slightly wider than tarmac (red/white armco-style) ─────────
   ctx.save();
   ctx.lineWidth = ROAD_HALF_W * 2 + 8;
   ctx.setLineDash([18, 18]);
@@ -942,6 +1035,13 @@ function loop(ts) {
 
     // Render — draw back-to-front so player (cars[0]) is on top
     drawTrack();
+
+    // BUG-OFFTRACK fix: draw off-track vignette BEFORE cars so cars always render on top
+    const onTrk = isOnTrack(cars[0].x, cars[0].y);
+    if (!onTrk) {
+      drawOffTrackVignette(0.55);
+    }
+
     if (gameMode === 'solo') {
       // Draw in reverse order: cars[3], cars[2], cars[1], cars[0]
       for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
@@ -951,11 +1051,11 @@ function loop(ts) {
       drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
       drawCar(cars[0], 0);
     }
+    // Tunnel roof drawn AFTER all drawCar() so it darkens cars inside the tunnel
+    drawTunnelRoof();
 
-    // Off-track feedback + damage (player car only)
-    const onTrk = isOnTrack(cars[0].x, cars[0].y);
+    // Off-track damage + shake (player car only) — damage logic kept here, vignette moved above
     if (!onTrk) {
-      drawOffTrackVignette(0.55);
       cars[0].damage = Math.min(100, cars[0].damage + 1.5 * dt);
       if (wasOnTrack) {
         cars[0].damage = Math.min(100, cars[0].damage + 3);
@@ -1025,6 +1125,8 @@ function loop(ts) {
       drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
       drawCar(cars[0], 0);
     }
+    // Tunnel roof drawn AFTER all drawCar() in done phase as well
+    drawTunnelRoof();
     drawWin(winner === 0);
   }
 
