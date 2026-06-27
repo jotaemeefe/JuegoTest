@@ -831,27 +831,31 @@ The success criteria requires these landmarks to be **recognizable** (not pixel-
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Monaco polyline visual quality**
    - What we know: Coordinate system is 480×640 world space projected through `project()`
    - What's unclear: Whether 28 points produces a shape visually recognizable as Monaco without more iteration
    - Recommendation: Plan a dedicated visual verification task as the first item of the TRACK-01 plan. Agent draws the spine, human verifies, agent adjusts. Budget 2-3 rounds.
+   - RESOLVED: Dedicated visual verification checkpoint task included in 02-02 (checkpoint:human-verify gate), budgeting 2-3 iteration rounds to achieve recognizable Monaco proportions.
 
 2. **AI_WAYPOINTS count for Monaco**
    - What we know: Current oval uses 18 waypoints for a simple oval; Monaco has 19 corners of varying tightness
    - What's unclear: How many waypoints are needed for the AI to navigate the Hairpin and Rascasse without going off-track
    - Recommendation: Start with 22–25 waypoints, with extra density at tight corners (Hairpin, Rascasse, Swimming Pool chicane). The AI_WP_REACH radius (currently 45px) may need to decrease to ~30px for tighter Monaco corners.
+   - RESOLVED: 22–25 waypoints with `AI_WP_REACH = 30` — mandated in 02-02 Task 1 acceptance criteria.
 
 3. **Multiplayer scope in Phase 2**
    - What we know: STATE.md says "4 cars = 1 player + 3 AIs" and "multiplayer mesh is v3+"
    - What's unclear: Whether Phase 2 should disable multiplayer mode entirely (simpler) or retain 1v1 multi without AI cars
    - Recommendation: Retain 1v1 multiplayer as-is. In multi mode, `cars` has length 2 (local + remote). AI cars are solo-only. This matches current architecture and STATE.md intent.
+   - RESOLVED: Retain 1v1 multiplayer. Solo mode uses `cars[length=4]`, multi mode uses `cars[length=2]` (local + remote, no AI cars). Implemented in 02-01 Task 1.
 
 4. **AI Waypoint starting stagger**
    - What we know: Starting 3 AI cars all at wpIdx=0 causes clustering at race start
    - What's unclear: Optimal stagger values — starting at wpIdx=2 and wpIdx=4 may not provide enough spread
    - Recommendation: Initialize AI waypoint indices to match their starting grid position along the circuit. Since all cars start at the same location, a small stagger (1–3 waypoints) helps spread them immediately.
+   - RESOLVED: Stagger `wpIdx` at init — `cars[1].wpIdx=0`, `cars[2].wpIdx=2`, `cars[3].wpIdx=4` — mandated in 02-01 Task 1 acceptance criteria.
 
 ---
 
