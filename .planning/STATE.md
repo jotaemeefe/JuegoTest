@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 3
+current_plan: 4
 status: in_progress
-stopped_at: Completed 02-02-PLAN.md — Monaco circuit geometry (ROAD_SPINE, AI_WAYPOINTS, CPS, START)
-last_updated: "2026-06-27T23:17:00.000Z"
+stopped_at: Completed 02-03-PLAN.md — Monaco environment drawing (harbour/casino/pit blocks), tunnel overlay, BUG-OFFTRACK fix
+last_updated: "2026-06-27T23:35:00.000Z"
 progress:
   total_phases: 17
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 15
+  completed_plans: 7
+  percent: 17
 ---
 
 # Project State
@@ -19,8 +19,8 @@ progress:
 ## Current Status
 
 **Active phase:** Phase 2 — Monaco + 4 Cars (IN PROGRESS)
-**Current plan:** 3
-**Last action:** Completed 02-02-PLAN.md — Monaco circuit geometry: ROAD_SPINE (34 pts), AI_WAYPOINTS (24 pts), CPS, START
+**Current plan:** 4
+**Last action:** Completed 02-03-PLAN.md — Monaco environment colour blocks, TUNNEL_ZONE + drawTunnelRoof(), BUG-OFFTRACK vignette render order fix
 **Resumed:** 2026-06-27
 
 ## Project Reference
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Performance Metrics
 
 - Requirements total: 35
-- Requirements completed: 15 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06)
+- Requirements completed: 17 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, TRACK-02, TRACK-03)
 - Phases completed: 1 / 3
 
 | Plan | Phase | Duration | Tasks | Files |
@@ -52,6 +52,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 01-04 | 01-foundation | 8 min | 2 | 3 |
 | 02-01 | 02-monaco-4-cars | 35 min | 2 | 1 |
 | 02-02 | 02-monaco-4-cars | 4 min | 1 | 1 |
+| 02-03 | 02-monaco-4-cars | 12 min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -65,6 +66,10 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - AI_WAYPOINTS: 24-point Monaco waypoints, AI_WP_REACH=30 — COMPLETED in 02-02 (290f261)
 - CPS: 4 Monaco checkpoints (Meta, Casino, Hairpin, Tunnel) — COMPLETED in 02-02 (290f261)
 - START: 2x2 grid on Monaco main straight — COMPLETED in 02-02 (290f261)
+- TUNNEL_ZONE world-space x1:295 y1:255 x2:450 y2:330 — derived from Portier→Nouvelle Chicane segment of ROAD_SPINE — COMPLETED in 02-03 (d88b67b)
+- drawTunnelRoof() uses polygon roof approach — darkens all cars in tunnel simultaneously without per-car checks — COMPLETED in 02-03 (d88b67b)
+- BUG-OFFTRACK root cause: vignette rendered AFTER drawCar() calls; fix: moved before drawCar() calls — COMPLETED in 02-03 (d88b67b)
+- car.inTunnel boolean set in drawTunnelRoof() each frame for Phase 3 audio — COMPLETED in 02-03 (d88b67b)
 - BUG-02 finish guard is symmetric for both host and guest paths through shared onMsg handler (verified, already correct)
 - BUG-04 lapStartTime correctly initialized at countdown→racing transition (verified, already correct)
 - Cadillac livery colors used from best available knowledge — user should verify at formula1.com
@@ -108,12 +113,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-27
-**Stopped at:** Completed 02-02-PLAN.md — Monaco geometry (ROAD_SPINE, AI_WAYPOINTS, CPS, START)
-**Resume file:** None — proceed to 02-03-PLAN.md (TRACK-02+03: Monaco environment drawing + tunnel overlay)
+**Stopped at:** Completed 02-03-PLAN.md — Monaco environment colour blocks, tunnel overlay, BUG-OFFTRACK fix
+**Resume file:** None — proceed to 02-04-PLAN.md (CARS-02: car personalities + CARS-03: 6-pair collision)
 
 ## Resume Instructions
 
-Phase 2 in progress. Next: execute 02-03-PLAN.md — Monaco environment drawing (harbour, casino, armco) and tunnel overlay.
+Phase 2 in progress. Next: execute 02-04-PLAN.md — AI car personalities (CARS-02) and full 6-pair collision detection (CARS-03).
 
 ---
 *State initialized: 2026-06-26*

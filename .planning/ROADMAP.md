@@ -65,7 +65,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — TRACK-02 + TRACK-03 + BUG-OFFTRACK: ambientación, overlay de túnel, autos siempre visibles
+- [x] 02-03-PLAN.md — TRACK-02 + TRACK-03 + BUG-OFFTRACK: ambientación, overlay de túnel, autos siempre visibles
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
-| 2. Monaco + 4 Cars | 2/4 | In Progress | - |
+| 2. Monaco + 4 Cars | 3/4 | In Progress | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---
