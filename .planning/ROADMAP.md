@@ -45,19 +45,25 @@ Plans:
 3. Three AI cars appear on the grid at race start and drive laps independently of the player; their starting positions and lap counts are tracked separately.
 4. The HUD shows a live P1/P2/P3/P4 classification that updates in real time as cars overtake each other.
 5. When two cars collide, both are physically deflected; the collision system covers all 6 possible pairs among the 4 cars.
-**Plans:** TBD
+**Plans:** 4 plans across 4 waves (all touch game.js, sequential)
+Plans:
+- [ ] 02-01-PLAN.md — CARS-01 refactor: local/remote -> cars[] array (4 autos en solo, 2 en multi)
+- [ ] 02-02-PLAN.md — TRACK-01 + TRACK-04: geometría de Mónaco (ROAD_SPINE, waypoints, checkpoints)
+- [ ] 02-03-PLAN.md — TRACK-02 + TRACK-03 + BUG-OFFTRACK: ambientación, overlay de túnel, autos siempre visibles
+- [ ] 02-04-PLAN.md — CARS-02 + CARS-03 + CARS-04: personalidades IA, colisión 6 pares, HUD P1-P4
 
 ### Phase 3: AI, Audio & Polish
 **Goal:** Racing feels tense and dramatic: AI opponents brake for corners and have distinct driving personalities, background music builds atmosphere, and visual effects celebrate overtakes and communicate damage.
 **Depends on:** Phase 2
-**Requirements:** AI-01, AI-02, AI-03, AUDIO-01, AUDIO-02, AUDIO-03, VFX-01, VFX-02, VFX-03, VFX-04, VFX-05, UI-07
+**Requirements:** AI-01, AI-02, AI-03, AUDIO-01, AUDIO-02, AUDIO-03, VFX-01, VFX-02, VFX-03, VFX-04, VFX-05, DRS-01, UI-07
 **Success Criteria:**
 1. AI cars visibly slow down before tight corners (Loews, Rascasse) and their lines vary lap-to-lap; the aggressive AI takes tighter lines than the defensive AI.
 2. Background music plays during the race and fades out when the checkered flag falls.
 3. When the player's car takes heavy damage, the screen tints progressively from orange to red and shakes noticeably on hard impacts.
 4. Overtaking a rival triggers a visible flash on the passed car and a rising synth tone; being overtaken triggers a flash on the player's car.
 5. After each lap crossing, the player sees their lap time compared to their personal best ("1:23.4 +0.8s récord" or "RÉCORD PERSONAL! -0.3s" in gold). The results screen always shows the best lap with a "--:--" placeholder if no lap has been completed.
-6. The lobby, rival select, and results screens have an updated visual design with impactful typography and Alpine brand colors (blue/pink).
+6. When within 60px of the car ahead at the detection point, the HUD shows "DRS DISPONIBLE"; pressing the assigned button activates a speed boost for 3 seconds; the indicator resets at the next lap. AI cars use DRS under the same condition.
+7. The lobby, rival select, and results screens have an updated visual design with impactful typography and Alpine brand colors (blue/pink).
 **Plans:** TBD
 **UI hint:** yes
 
@@ -68,7 +74,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
-| 2. Monaco + 4 Cars | 0/? | Not started | - |
+| 2. Monaco + 4 Cars | 0/4 | Planned | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---
@@ -111,9 +117,10 @@ Plans:
 | VFX-03 | Phase 3 |
 | VFX-04 | Phase 3 |
 | VFX-05 | Phase 3 |
+| DRS-01 | Phase 3 |
 | UI-07 | Phase 3 |
 
-**Total mapped: 35/35**
+**Total mapped: 36/36**
 
 ---
 
@@ -178,6 +185,40 @@ Clasificación antes de cada carrera para definir el grid de salida. Mejoras de 
 - **Push to Pass**: boost de 5 segundos que recarga en media vuelta; decisión táctica por vuelta
 - **Radio del ingeniero**: mensajes contextuales — "Estás P2, Norris a 1.8 segundos y viene rápido"
 
+### Phase R4-4: Lap Count Selection
+- **En temporada**: selector al configurar la temporada — Corta (3 vueltas), Estándar (5 vueltas), Larga (10 vueltas). Carreras largas hacen el pit stop casi obligatorio; cortas lo hacen opcional. Afecta la profundidad estratégica de R4-1.
+- **En VS CPU y multiplayer 1v1**: selector pre-carrera — 3 / 5 / 10 vueltas. La preferencia se persiste en localStorage.
+
 **El momento que hace adictivo el juego:** estás P1 con neumáticos degradados, el Safety Car sale por una colisión, la IA pica y sale con Blandos frescos — tenés 3 segundos para decidir si entrás o defendés. Ese momento no puede existir en el juego sin este release.
 
 **Seed:** `.planning/seeds/race-strategy-drama.md`
+
+---
+
+## Release 5: Sim-Lite Physics & Challenge *(milestone futuro — post R4)*
+
+**Goal:** Darle al auto carácter real. El jugador puede exceder los límites del coche con consecuencias físicas, la pista tiene reglas que se hacen cumplir, y el setup pre-carrera convierte cada circuito en una decisión estratégica distinta.
+
+**Depends on:** Release 4 completo
+
+**Scope:**
+
+### Phase R5-1: Physics with Traction Limit
+- Oversteer al acelerar demasiado rápido en salida de curva lenta
+- Understeer al entrar demasiado rápido en curva rápida
+- Traction limit: el gas a fondo desde velocidad baja produce wheelspin y pérdida de control
+- El modelo actual (friction + auto-accel) se extiende, no se reemplaza
+
+### Phase R5-2: Track Limits & Penalty System
+- Cortar una curva activa un contador de advertencias
+- Tras 3 advertencias: time penalty de 5 segundos aplicado al resultado final
+- Zonas de límite definidas por pista (no genéricas)
+- IA respeta los mismos límites que el jugador
+
+### Phase R5-3: Car Setup & Adaptive AI
+- Pantalla de setup pre-carrera: downforce (velocidad curva vs recta) y balance de frenos
+- El setup óptimo varía por circuito — Monaco pide máximo downforce, Monza mínimo
+- IA adaptativa: si el jugador lidera el campeonato, los rivales del top 3 aumentan agresividad
+- ERS orgánico: energía se carga frenando, se gasta acelerando — reemplaza el Push to Pass discreto de R4
+
+**Seed:** `.planning/seeds/sim-lite-physics.md`
