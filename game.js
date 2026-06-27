@@ -11,44 +11,52 @@ const TURN_RATE     = 3.5;   // rad/s — min radius at eq speed = 145/(3.5×0.8
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
-// Stadium oval — Buenos Aires (polyline spine, 35 points)
+// Circuit de Monaco — clockwise, 34-point polyline, world-space 480×640
+// Sequence: Meta → Sainte-Dévote → Beau Rivage → Massenet → Casino → Mirabeau
+//           → Grand Hotel Hairpin (U-turn) → Portier → Tunnel → Nouvelle Chicane
+//           → Tabac → Swimming Pool → La Rascasse → Antony Noghès → Meta
 const ROAD_HALF_W = 60;
 const ROAD_SPINE = [
-  // ── Main straight (west end → east) ───────────────────────────────────────
-  [ 82, 527], [152, 527], [222, 527], [292, 527], [362, 527],
-  // ── Bottom-right corner ────────────────────────────────────────────────────
-  [395, 518], [415, 498], [420, 472], [418, 447],
-  // ── Right straight (south → north) ────────────────────────────────────────
-  [414, 400], [412, 340], [412, 280], [412, 220], [412, 168],
-  // ── Top-right corner ──────────────────────────────────────────────────────
-  [405, 140], [388, 118], [362, 102], [330,  96],
-  // ── Top straight (east → west) ────────────────────────────────────────────
-  [285,  93], [240,  92], [195,  93], [163,  98],
-  // ── Top-left corner ───────────────────────────────────────────────────────
-  [132, 110], [108, 132], [ 93, 160],
-  // ── Left straight (north → south) ─────────────────────────────────────────
-  [ 90, 210], [ 90, 270], [ 90, 330], [ 90, 390], [ 90, 450],
-  // ── Bottom-left corner ────────────────────────────────────────────────────
-  [ 93, 482], [110, 510], [140, 525], [172, 527],
-  // ── Close loop ────────────────────────────────────────────────────────────
-  [ 82, 527],
+  // ── Meta / main straight (west → east, bottom of canvas) ──────────────────
+  [ 60, 550], [130, 550], [220, 550],
+  // ── Sainte-Dévote (tight right, climbing) ──────────────────────────────────
+  [255, 545], [275, 530], [285, 510],
+  // ── Beau Rivage + Massenet (uphill sweep toward Casino plateau) ────────────
+  [290, 475], [295, 440], [305, 395],
+  [320, 355],
+  // ── Casino Square + Mirabeau (right then left, upper-right area) ──────────
+  [345, 315], [365, 275], [375, 245],
+  // ── Grand Hotel Hairpin (tightest turn — near U-turn, upper apex) ─────────
+  [385, 215], [400, 195], [410, 185], [405, 175], [385, 175], [365, 182],
+  // ── Mirabeau Bas + Portier (descending right toward tunnel) ───────────────
+  [345, 200], [325, 230], [310, 265],
+  // ── Tunnel (rightward run at sea level) ───────────────────────────────────
+  [320, 295], [370, 310], [420, 315],
+  // ── Nouvelle Chicane + Tabac (left-right after tunnel exit) ───────────────
+  [440, 305], [435, 355], [415, 385],
+  // ── Swimming Pool + La Rascasse (harbour chicane, tight right) ────────────
+  [395, 420], [365, 465], [345, 495],
+  // ── Antony Noghès (final right back to start/finish) ──────────────────────
+  [300, 525], [240, 547],
+  // ── Close loop (return to Meta) ───────────────────────────────────────────
+  [ 60, 550],
 ];
 
-// Checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
+// Monaco checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
 const CPS = [
-  { x: 210, y: 527, r: 80 },  // 0 META — main straight
-  { x: 413, y: 310, r: 76 },  // 1 right straight mid
-  { x: 240, y:  92, r: 82 },  // 2 top straight mid
-  { x:  90, y: 330, r: 76 },  // 3 left straight mid
+  { x: 130, y: 550, r: 80 },  // 0 META — main straight
+  { x: 365, y: 265, r: 70 },  // 1 Casino / Mirabeau plateau
+  { x: 400, y: 185, r: 65 },  // 2 Grand Hotel Hairpin apex
+  { x: 415, y: 312, r: 70 },  // 3 Tunnel / post-tunnel exit
 ];
 
-// Starting grid [P1, P2, P3, P4] — main straight, 2×2 formation, pointing east (angle 0)
-// Positioned well west of the first corner so player has time to react
+// Monaco starting grid [P1, P2, P3, P4] — main straight, 2×2 formation, pointing east (angle 0)
+// 30px lateral spread, ~10px longitudinal — all positions verified isOnTrack()
 const START = [
-  { x: 185, y: 521, a: 0 },  // P1 — player (left column, front row)
-  { x: 155, y: 521, a: 0 },  // P2 — AI car 1 (left column, back row)
-  { x: 185, y: 529, a: 0 },  // P3 — AI car 2 (right column, front row)
-  { x: 155, y: 529, a: 0 },  // P4 — AI car 3 (right column, back row)
+  { x: 185, y: 543, a: 0 },  // P1 — player (right column, front row)
+  { x: 155, y: 543, a: 0 },  // P2 — AI car 1 (left column, front row)
+  { x: 185, y: 553, a: 0 },  // P3 — AI car 2 (right column, back row)
+  { x: 155, y: 553, a: 0 },  // P4 — AI car 3 (left column, back row)
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -95,26 +103,32 @@ function rivalDiff(skill) {
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
 
-// Fine-grained AI navigation waypoints — stadium oval, 18 points CW
+// Monaco AI navigation waypoints — 24 points CW, extra density at hairpin & Rascasse
 const AI_WAYPOINTS = [
-  [222, 525],  // 0  main straight / META zone
-  [295, 525],  // 1  main straight east
-  [375, 523],  // 2  entering bottom-right corner
-  [416, 472],  // 3  bottom-right corner mid
-  [413, 400],  // 4  right straight lower
-  [412, 310],  // 5  right straight mid (CP1)
-  [412, 220],  // 6  right straight upper
-  [400, 140],  // 7  top-right corner entry
-  [358, 100],  // 8  top-right corner apex
-  [290,  93],  // 9  top straight east
-  [240,  92],  // 10 top straight mid (CP2)
-  [180,  94],  // 11 top straight west
-  [112, 118],  // 12 top-left corner
-  [ 91, 170],  // 13 left straight upper
-  [ 90, 330],  // 14 left straight mid (CP3)
-  [ 90, 445],  // 15 left straight lower
-  [ 96, 492],  // 16 bottom-left corner
-  [148, 525],  // 17 main straight west
+  [130, 550],  //  0  Meta / main straight
+  [220, 550],  //  1  main straight east
+  [270, 535],  //  2  Sainte-Dévote entry
+  [285, 510],  //  3  Sainte-Dévote apex
+  [293, 455],  //  4  Beau Rivage climb
+  [312, 375],  //  5  Massenet
+  [355, 315],  //  6  Casino Square
+  [368, 270],  //  7  Mirabeau entry
+  [375, 245],  //  8  Mirabeau
+  [387, 215],  //  9  Grand Hotel entry
+  [404, 193],  // 10  hairpin outer
+  [410, 183],  // 11  hairpin apex 1
+  [400, 174],  // 12  hairpin apex 2 (tightest)
+  [378, 176],  // 13  hairpin inner
+  [360, 183],  // 14  hairpin exit
+  [335, 215],  // 15  Mirabeau Bas descent
+  [312, 270],  // 16  Portier
+  [325, 300],  // 17  tunnel entry
+  [395, 313],  // 18  tunnel mid
+  [435, 310],  // 19  tunnel exit / Nouvelle Chicane
+  [430, 370],  // 20  Tabac
+  [405, 420],  // 21  Swimming Pool
+  [355, 480],  // 22  La Rascasse
+  [310, 525],  // 23  Antony Noghès
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -409,9 +423,9 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish chequered stripe — projected into isometric space
-  const pm1 = project(210, 527 - ROAD_HALF_W);
-  const pm2 = project(210, 527 + ROAD_HALF_W);
+  // Start/finish chequered stripe — projected into isometric space (Monaco CP0: x=130, y=550)
+  const pm1 = project(130, 550 - ROAD_HALF_W);
+  const pm2 = project(130, 550 + ROAD_HALF_W);
   ctx.save();
   ctx.lineWidth = 5;
   ctx.setLineDash([6, 6]);
@@ -433,7 +447,7 @@ function drawTrack() {
   const wm = project(240, 310);
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
   ctx.font = 'bold 10px monospace';
-  ctx.fillText('CIRCUITO COLAPINTO · BUENOS AIRES', wm.x, wm.y);
+  ctx.fillText('CIRCUIT DE MONACO · MONTE CARLO', wm.x, wm.y);
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
@@ -652,7 +666,7 @@ function updateCar(car, dt, damage = 0) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_WP_REACH = 45; // px radius to advance to next waypoint
+const AI_WP_REACH = 30; // px radius to advance to next waypoint (reduced for Monaco tight corners)
 
 function updateAI(car, dt) {
   if (car.finished) return;
@@ -759,10 +773,10 @@ function drawCountdown(val) {
     ctx.fillText(String(val), 240, 370);
     ctx.font = 'bold 13px monospace';
     ctx.fillStyle = '#f8fafc';
-    ctx.fillText('CIRCUITO COLAPINTO', 240, 440);
+    ctx.fillText('CIRCUIT DE MONACO', 240, 440);
     ctx.fillStyle = '#00a0e9';
     ctx.font = '11px monospace';
-    ctx.fillText('BUENOS AIRES · ARGENTINA', 240, 458);
+    ctx.fillText('MONTE CARLO · MÓNACO', 240, 458);
   } else {
     ctx.font = 'bold 72px system-ui';
     ctx.fillStyle = '#fbbf24';
