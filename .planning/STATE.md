@@ -2,33 +2,33 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: Not started
-status: ready_to_plan
-stopped_at: Completed 01-04-PLAN.md (Phase 1 complete)
-last_updated: "2026-06-27T23:00:15.176Z"
+current_plan: 2
+status: in_progress
+stopped_at: Completed 02-01-PLAN.md — CARS-01 refactor (local/remote → cars[] array)
+last_updated: "2026-06-27T23:35:00.000Z"
 progress:
-  total_phases: 13
+  total_phases: 17
   completed_phases: 1
   total_plans: 8
-  completed_plans: 4
-  percent: 8
+  completed_plans: 5
+  percent: 12
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 1 — Foundation (COMPLETE)
-**Current plan:** Not started
-**Last action:** Completed 01-04-PLAN.md — copy code button + toast (UI-05) and disconnect modal replacing alert() (UI-06)
-**Resumed:** 2026-06-26
+**Active phase:** Phase 2 — Monaco + 4 Cars (IN PROGRESS)
+**Current plan:** 2
+**Last action:** Completed 02-01-PLAN.md — CARS-01 refactor: local/remote → cars[] array (4 cars in solo, 2 in multi)
+**Resumed:** 2026-06-27
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Una carrera tensa y satisfactoria contra rivales con personalidad propia, en el mítico circuito de Mónaco, que se juega bien tanto en desktop como en celular.
-**Current focus:** Phase 2 — monaco + 4 cars
+**Current focus:** Phase 2 — Monaco + 4 Cars
 
 ## Phase Overview
 
@@ -50,6 +50,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 01-02 | 01-foundation | 10 min | 2 | 2 |
 | 01-03 | 01-foundation | 8 min | 2 | 3 |
 | 01-04 | 01-foundation | 8 min | 2 | 3 |
+| 02-01 | 02-monaco-4-cars | 35 min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -58,7 +59,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - 4 cars = 1 player + 3 AIs (not 4 humans) — multiplayer mesh is v3+
 - Monaco replaces the oval entirely — no track selector until v3
 - Build order is mandatory: Foundation → Monaco+Cars → AI+Polish (each phase unblocks the next)
-- `local`/`remote` must be refactored to `cars[]` array before anything else in Phase 2 touches AI or rendering
+- `local`/`remote` refactored to `cars[]` array — COMPLETED in 02-01 (ba256de)
 - BUG-02 finish guard is symmetric for both host and guest paths through shared onMsg handler (verified, already correct)
 - BUG-04 lapStartTime correctly initialized at countdown→racing transition (verified, already correct)
 - Cadillac livery colors used from best available knowledge — user should verify at formula1.com
@@ -101,13 +102,13 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Session Continuity
 
-**Last session:** 2026-06-26
-**Stopped at:** Completed 01-04-PLAN.md (Phase 1 complete)
-**Resume file:** None — Phase 1 complete, proceed to Phase 2
+**Last session:** 2026-06-27
+**Stopped at:** Completed 02-01-PLAN.md — CARS-01 refactor (cars[] array replacing local/remote)
+**Resume file:** None — proceed to 02-02-PLAN.md (TRACK-01 + TRACK-04: Monaco geometry)
 
 ## Resume Instructions
 
-Phase 1 complete. To start Phase 2: `/gsd:discuss-phase 2` or `/gsd:execute-phase 2`
+Phase 2 in progress. Next: execute 02-02-PLAN.md — Monaco circuit geometry (ROAD_SPINE, AI_WAYPOINTS, checkpoints).
 
 ---
 *State initialized: 2026-06-26*

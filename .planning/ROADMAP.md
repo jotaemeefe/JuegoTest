@@ -57,7 +57,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — CARS-01 refactor: local/remote -> cars[] array (4 autos en solo, 2 en multi)
+- [x] 02-01-PLAN.md — CARS-01 refactor: local/remote -> cars[] array (4 autos en solo, 2 en multi)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
-| 2. Monaco + 4 Cars | 0/4 | Planned | - |
+| 2. Monaco + 4 Cars | 1/4 | In Progress | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---
@@ -255,3 +255,51 @@ Clasificación antes de cada carrera para definir el grid de salida. Mejoras de 
 - ERS orgánico: energía se carga frenando, se gasta acelerando — reemplaza el Push to Pass discreto de R4
 
 **Seed:** `.planning/seeds/sim-lite-physics.md`
+
+---
+
+## Release 6: The Colapinto Story *(milestone futuro — post R5)*
+
+**Goal:** Transformar el juego en *el* juego de Franco Colapinto — una campaña narrativa ramificada que recorre su carrera real desde el karting argentino hasta la F1, donde tus resultados vs. la historia real determinan cómo se desarrolla el relato.
+
+**Depends on:** Release 5 completo (physics profiles son la base de las categorías)
+
+**Concepto central:** "Elige tu propia aventura" con fundamento histórico. Siempre avanzás de categoría si alcanzás un mínimo (no hay bloqueos frustrantes), pero tus resultados relativos a lo que hizo Colapinto en la realidad bifurcan la narrativa: dominás F2 → Alpine te llama antes; llegás justo → Williams te invita igual pero con menos fanfarria. Múltiples caminos, un destino común: la F1.
+
+**El arco histórico:**
+- Karting (Argentina → Europa, 2014–2018)
+- Formula 4 (UAE / Italia, 2019)
+- Formula Regional / F3 por Alpine Academy (2020–2022)
+- Formula 2 con Prema — revelación (2023)
+- Debut F1 en Williams, Monza — llamado de emergencia 48hs antes (2024)
+- Alpine F1 Team, temporada completa (2025)
+
+**Scope:**
+
+### Phase R6-1: Career Engine
+- Máquina de estados narrativos: categoría actual, resultados acumulados, variables de bifurcación (relación con Alpine, performance relativa a historia real)
+- Save/load del progreso de carrera en localStorage
+- Sistema de comparación histórica: cada carrera tiene el resultado real de Colapinto como referencia; el delta alimenta el estado narrativo
+- Pantalla de hub entre carreras: calendario, tabla, próxima carrera
+
+### Phase R6-2: Category Physics Profiles
+- **Karting:** cero downforce, grip mecánico puro, top speed ~120px/s, muy responsivo al volante
+- **F4:** primeras alas, potencia limitada, ~150px/s — primer contacto con sensación de fórmula
+- **F3 / Formula Regional:** downforce real, ~170px/s, el auto empieza a sentirse rápido de verdad
+- **F2:** casi F1, pit stop obligatorio en Feature Race, sprint race sin parada
+- **F1:** el juego existente — Monaco y todos los sistemas de R3/R4/R5 activos
+
+### Phase R6-3: Career Tracks
+- Circuitos de karting (trazados cortos, ~8 waypoints, ambientación kartodromo)
+- Circuitos junior: Mugello (F3), Silverstone (F2 feature), Jeddah (F2 sprint), Monza (debut F1)
+- Cada circuito tiene dificultad escalada a la categoría que lo usa
+
+### Phase R6-4: Branching Narrative
+- **Cards narrativas** entre carreras: estilo periódico deportivo — titular, arte sintético en canvas, cita de Colapinto o su entorno
+- **Momentos de decisión:** "Alpine te ofrece un contrato de academia — ¿aceptás?" / "Williams necesita un piloto en 48hs para Monza, ¿estás listo?"
+- **Bifurcaciones por rendimiento:** superaste historia / igualaste / quedaste por debajo → cada nivel desbloquea variantes del relato
+- **Múltiples finales en F1:** campeón del mundo / piloto establecido top 5 / rookie sólido — según tu temporada F1
+
+**Por qué este es el juego de Colapinto y no uno más:** el arco ya existe — el pibe de Pilar que se fue solo a Europa, la academia, el llamado a las 48hs para Monza, el debut top 10. El juego lo convierte en algo que se puede *jugar* y donde tus elecciones importan dentro de ese marco real.
+
+**Seed:** `.planning/seeds/colapinto-story-career.md`
