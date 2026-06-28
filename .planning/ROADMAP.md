@@ -10,7 +10,7 @@
 ## Phases
 
 - [ ] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
-- [ ] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
+- [x] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
 - [ ] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects, and UI redesign.
 
 ---
@@ -53,7 +53,7 @@ Plans:
 4. The HUD shows a live P1/P2/P3/P4 classification that updates in real time as cars overtake each other.
 5. When two cars collide, both are physically deflected; the collision system covers all 6 possible pairs among the 4 cars.
 
-**Plans:** 4 plans across 4 waves (all touch game.js, sequential)
+**Plans:** 4/4 plans complete
 Plans:
 **Wave 1**
 
@@ -69,7 +69,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-04-PLAN.md — CARS-02 + CARS-03 + CARS-04: personalidades IA, colisión 6 pares, HUD P1-P4
+- [x] 02-04-PLAN.md — CARS-02 + CARS-03 + CARS-04: personalidades IA, colisión 6 pares, HUD P1-P4
 
 ### Phase 3: AI, Audio & Polish
 
@@ -96,7 +96,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
-| 2. Monaco + 4 Cars | 3/4 | In Progress | - |
+| 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---

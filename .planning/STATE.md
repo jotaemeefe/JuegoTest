@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 4
-status: in_progress
-stopped_at: Completed 02-03-PLAN.md — Monaco environment drawing (harbour/casino/pit blocks), tunnel overlay, BUG-OFFTRACK fix
-last_updated: "2026-06-27T23:35:00.000Z"
+current_plan: 5
+status: phase_complete
+stopped_at: Completed 02-04-PLAN.md — AI personalities (CARS-02), 6-pair collision (CARS-03), HUD P1-P4 (CARS-04). Phase 2 complete.
+last_updated: "2026-06-27T23:53:00.000Z"
 progress:
   total_phases: 17
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
-  percent: 17
+  completed_plans: 8
+  percent: 22
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 2 — Monaco + 4 Cars (IN PROGRESS)
-**Current plan:** 4
-**Last action:** Completed 02-03-PLAN.md — Monaco environment colour blocks, TUNNEL_ZONE + drawTunnelRoof(), BUG-OFFTRACK vignette render order fix
+**Active phase:** Phase 2 — Monaco + 4 Cars (COMPLETE)
+**Current plan:** 5 (next phase)
+**Last action:** Completed 02-04-PLAN.md — AI personalities (CARS-02), all 6 collision pairs (CARS-03), HUD P1-P4 (CARS-04). Phase 2 fully complete.
 **Resumed:** 2026-06-27
 
 ## Project Reference
@@ -28,21 +28,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26)
 
 **Core value:** Una carrera tensa y satisfactoria contra rivales con personalidad propia, en el mítico circuito de Mónaco, que se juega bien tanto en desktop como en celular.
-**Current focus:** Phase 2 — Monaco + 4 Cars
+**Current focus:** Phase 3 — AI, Audio & Polish
 
 ## Phase Overview
 
 | Phase | Name | Goal | Status |
 |-------|------|------|--------|
-| 1 | Foundation | Game runs cleanly with no known bugs, expanded keyboard controls, correct 2026 grid, and responsive layout on any device | ◐ Planned (4 plans) |
-| 2 | Monaco + 4 Cars | Races take place on Monaco circuit with 4 cars on track simultaneously — player plus 3 AI opponents with distinct personalities | ○ Pending |
+| 1 | Foundation | Game runs cleanly with no known bugs, expanded keyboard controls, correct 2026 grid, and responsive layout on any device | COMPLETE |
+| 2 | Monaco + 4 Cars | Races take place on Monaco circuit with 4 cars on track simultaneously — player plus 3 AI opponents with distinct personalities | COMPLETE |
 | 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage | ○ Pending |
 
 ## Performance Metrics
 
 - Requirements total: 35
-- Requirements completed: 17 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, TRACK-02, TRACK-03)
-- Phases completed: 1 / 3
+- Requirements completed: 20 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, TRACK-02, TRACK-03, CARS-02, CARS-03, CARS-04)
+- Phases completed: 2 / 3
 
 | Plan | Phase | Duration | Tasks | Files |
 |------|-------|----------|-------|-------|
@@ -53,6 +53,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 02-01 | 02-monaco-4-cars | 35 min | 2 | 1 |
 | 02-02 | 02-monaco-4-cars | 4 min | 1 | 1 |
 | 02-03 | 02-monaco-4-cars | 12 min | 2 | 1 |
+| 02-04 | 02-monaco-4-cars | 18 min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -70,6 +71,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - drawTunnelRoof() uses polygon roof approach — darkens all cars in tunnel simultaneously without per-car checks — COMPLETED in 02-03 (d88b67b)
 - BUG-OFFTRACK root cause: vignette rendered AFTER drawCar() calls; fix: moved before drawCar() calls — COMPLETED in 02-03 (d88b67b)
 - car.inTunnel boolean set in drawTunnelRoof() each frame for Phase 3 audio — COMPLETED in 02-03 (d88b67b)
+- PERSONALITIES const: aggressive (speedMult 1.05, brakeMult 0.8, damageMult 1.5), defensive (speedMult 0.92, brakeMult 1.2, damageMult 0.8), consistent (all 1.0) — COMPLETED in 02-04 (4a4d71d)
+- Personality assignment: cars[1]=aggressive, cars[2]=defensive, cars[3]=consistent every race (fixed mapping) — COMPLETED in 02-04 (4a4d71d)
+- PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]] loop replaces single player-vs-cars[1] collision — COMPLETED in 02-04 (4a4d71d)
+- damageMult of hitting AI scales collision damage to player (aggressive = 1.5x) — COMPLETED in 02-04 (4a4d71d)
+- HUD P1-P4 with distToCP tiebreak to eliminate rank flicker when side-by-side (Pitfall 6) — COMPLETED in 02-04 (4a4d71d)
+- prevIsFirst removed; prevPlayerRank replaces it for overtake detection — COMPLETED in 02-04 (4a4d71d)
 - BUG-02 finish guard is symmetric for both host and guest paths through shared onMsg handler (verified, already correct)
 - BUG-04 lapStartTime correctly initialized at countdown→racing transition (verified, already correct)
 - Cadillac livery colors used from best available knowledge — user should verify at formula1.com
@@ -95,16 +102,18 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ### Phase 2 Notes
 
-- CARS-01 is the load-bearing refactor: `local`/`remote` → `cars[]`; every other Phase 2 requirement depends on it
-- TRACK-01 replaces `ROAD_SPINE` and `AI_WAYPOINTS` wholesale — do not attempt to port incrementally
-- TRACK-04 (new checkpoints) must be designed alongside TRACK-01 geometry
-- CARS-03 collision pairs: 4 cars = 6 pairs (0-1, 0-2, 0-3, 1-2, 1-3, 2-3)
+- All Phase 2 requirements (TRACK-01 to TRACK-04, CARS-01 to CARS-04) implemented across plans 02-01 to 02-04
+- CARS-01 was the load-bearing refactor: local/remote → cars[] (02-01)
+- Monaco geometry (ROAD_SPINE, AI_WAYPOINTS, CPS, START) fully replaced in 02-02
+- brakeMult in PERSONALITIES scales 0.35 base factor — NOTE: 0.35 → 0.70 upgrade is AI-01 (Phase 3)
+- lineMult applied as subtle apex offset (max ±5px) to keep AI on track
 
 ### Phase 3 Notes
 
-- AI-03 depends on CARS-02 personalities being defined in Phase 2
-- AUDIO-01 background music loop: use existing Web Audio API pattern from `game.js:234-322`
-- VFX-03 overtake drama requires knowing relative positions of all 4 cars — depends on CARS-04 classification HUD
+- AI-03 depends on CARS-02 personalities — NOW AVAILABLE (car.personality on each AI car)
+- AUDIO-01 background music loop: use existing Web Audio API pattern from game.js:234-322
+- VFX-03 overtake drama requires knowing relative positions of all 4 cars — NOW AVAILABLE (P1-P4 HUD)
+- car.inTunnel boolean available on each car for tunnel audio effect (Phase 3 AI/audio)
 
 ### Blockers
 
@@ -113,12 +122,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-27
-**Stopped at:** Completed 02-03-PLAN.md — Monaco environment colour blocks, tunnel overlay, BUG-OFFTRACK fix
-**Resume file:** None — proceed to 02-04-PLAN.md (CARS-02: car personalities + CARS-03: 6-pair collision)
+**Stopped at:** Completed 02-04-PLAN.md — Phase 2 complete. PERSONALITIES, 6-pair collision, HUD P1-P4.
+**Resume file:** None — proceed to Phase 3 planning
 
 ## Resume Instructions
 
-Phase 2 in progress. Next: execute 02-04-PLAN.md — AI car personalities (CARS-02) and full 6-pair collision detection (CARS-03).
+Phase 2 complete. All requirements (CARS-02, CARS-03, CARS-04, TRACK-02, TRACK-03) implemented. Next: execute Phase 3 — AI braking, audio, and VFX polish.
 
 ---
 *State initialized: 2026-06-26*
