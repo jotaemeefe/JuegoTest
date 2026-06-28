@@ -7,7 +7,7 @@ const MAX_SPD_OFF   = 72;    // px/s off track (gradual, not abrupt)
 const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
 const FRICTION_K    = 1.1;   // speed lost per second (proportional)
 const BRAKE_FORCE   = 350;   // px/s² when braking
-const TURN_RATE     = 3.5;   // rad/s — min radius at eq speed = 145/(3.5×0.87)≈48px < ROAD_HALF_W=60
+const TURN_RATE     = 4.5;   // rad/s — increased for Monaco's tight streets (ROAD_HALF_W=28)
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 14;    // px, for car-car collision detection
 
@@ -15,7 +15,7 @@ const CAR_RADIUS    = 14;    // px, for car-car collision detection
 // Sequence: Meta → Sainte-Dévote → Beau Rivage → Massenet → Casino → Mirabeau
 //           → Grand Hotel Hairpin (U-turn) → Portier → Tunnel → Nouvelle Chicane
 //           → Tabac → Swimming Pool → La Rascasse → Antony Noghès → Meta
-const ROAD_HALF_W = 60;
+const ROAD_HALF_W = 28;
 const ROAD_SPINE = [
   // ── Meta / main straight (west → east, bottom of canvas) ──────────────────
   [ 60, 550], [130, 550], [220, 550],
@@ -50,13 +50,13 @@ const CPS = [
   { x: 415, y: 312, r: 70 },  // 3 Tunnel / post-tunnel exit
 ];
 
-// Monaco starting grid [P1, P2, P3, P4] — main straight, 2×2 formation, pointing east (angle 0)
-// 30px lateral spread, ~10px longitudinal — all positions verified isOnTrack()
+// Monaco starting grid [P1, P2, P3, P4] — main straight, 2×2 staggered formation, pointing east
+// Checkerboard layout: each pair > 35px apart (> CAR_RADIUS*2=28px) — no collision at start
 const START = [
-  { x: 185, y: 543, a: 0 },  // P1 — player (right column, front row)
-  { x: 155, y: 543, a: 0 },  // P2 — AI car 1 (left column, front row)
-  { x: 185, y: 553, a: 0 },  // P3 — AI car 2 (right column, back row)
-  { x: 155, y: 553, a: 0 },  // P4 — AI car 3 (left column, back row)
+  { x: 195, y: 556, a: 0 },  // P1 — player  (right col, front)  |556-550|=6 < ROAD_HALF_W=28 ✓
+  { x: 162, y: 544, a: 0 },  // P2 — AI car1  (left col, front)  |544-550|=6 < 28 ✓
+  { x: 130, y: 556, a: 0 },  // P3 — AI car2  (right col, rear)  33px behind P1 ✓
+  { x:  97, y: 544, a: 0 },  // P4 — AI car3  (left col, rear)   33px behind P2 ✓
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -423,7 +423,7 @@ function drawSpinePath() {
 // ── Tunnel zone (world-space bounding box covering the tunnel segment) ─────────
 // ROAD_SPINE tunnel: Portier [310,265] → [320,295] → [370,310] → [420,315] → [440,305]
 // Extended slightly to cover the full tunnel visual section.
-const TUNNEL_ZONE = { x1: 295, y1: 255, x2: 450, y2: 330 };
+const TUNNEL_ZONE = { x1: 318, y1: 282, x2: 452, y2: 325 };
 
 function drawTunnelRoof() {
   // Update car.inTunnel flag for each car (used by audio in Phase 3)
@@ -506,11 +506,11 @@ function drawTrack() {
   ctx.restore();
 
   // Pit lane strip — dark tarmac alongside the main straight (south of spine)
-  // World-space pit: x:60-250, y:558-580
+  // World-space pit: x:60-250, y:580-600
   ctx.save();
   ctx.fillStyle = '#1a1a1a';
-  const pl_tl = project(60, 558), pl_tr = project(250, 558);
-  const pl_br = project(250, 578), pl_bl = project(60, 578);
+  const pl_tl = project(60, 580), pl_tr = project(250, 580);
+  const pl_br = project(250, 598), pl_bl = project(60, 598);
   ctx.beginPath();
   ctx.moveTo(pl_tl.x, pl_tl.y);
   ctx.lineTo(pl_tr.x, pl_tr.y);
@@ -1108,15 +1108,19 @@ function loop(ts) {
 
     // Off-track damage + shake (player car only) — damage logic kept here, vignette moved above
     if (!onTrk) {
-      cars[0].damage = Math.min(100, cars[0].damage + 1.5 * dt);
+      cars[0].damage = Math.min(100, cars[0].damage + 1.2 * dt);
       if (wasOnTrack) {
-        cars[0].damage = Math.min(100, cars[0].damage + 3);
+        cars[0].damage = Math.min(100, cars[0].damage + 2);
         clearTimeout(shakeTimer);
         canvasWrap.classList.remove('shake');
         void canvasWrap.offsetWidth;
         canvasWrap.classList.add('shake');
         shakeTimer = setTimeout(() => canvasWrap.classList.remove('shake'), 320);
       }
+    }
+    // Slow damage recovery while on track — makes game more forgiving
+    if (onTrk && cars[0].damage > 0) {
+      cars[0].damage = Math.max(0, cars[0].damage - 3 * dt);
     }
     wasOnTrack = onTrk;
 
@@ -1309,10 +1313,11 @@ function resetGame() {
     cars = [
       // cars[0] — player (Colapinto)
       Object.assign(makeCar(0), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null, personality: null }),
-      // cars[1–3] — AI opponents with staggered waypoints and distinct personalities
-      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[0]], personality: PERSONALITIES[personalityOrder[0]] }),
-      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 2, rivalData: RIVALS[aiIndices[1]], personality: PERSONALITIES[personalityOrder[1]] }),
-      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 4, rivalData: RIVALS[aiIndices[2]], personality: PERSONALITIES[personalityOrder[2]] }),
+      // cars[1–3] — AI opponents. All start pointing EAST (positive x direction).
+      // wpIdx 1 = WP (220,550) east of P2 start; wpIdx 0 = WP (130,550) east of P3/P4 start.
+      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[aiIndices[0]], personality: PERSONALITIES[personalityOrder[0]] }),
+      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[1]], personality: PERSONALITIES[personalityOrder[1]] }),
+      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[2]], personality: PERSONALITIES[personalityOrder[2]] }),
     ];
   } else {
     // Multi: 2 cars — local player + remote peer
