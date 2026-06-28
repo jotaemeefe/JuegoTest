@@ -401,13 +401,8 @@ function updateLobbyRecord() {
   }
 }
 
-// ── Isometric projection ──────────────────────────────────────────────────────
-const ISO = { cx: 240, cy: 330, wx: 240, wy: 310, sx: 0.55, sy: 0.55 };
-
-function project(wx, wy) {
-  const dx = wx - ISO.wx, dy = wy - ISO.wy;
-  return { x: ISO.cx + (dx - dy) * ISO.sx, y: ISO.cy + (dx + dy) * ISO.sy };
-}
+// ── Top-down projection (identity — world-space = screen-space at 480×640) ─────
+function project(wx, wy) { return { x: wx, y: wy }; }
 
 function darken(hex, f) {
   try {
@@ -549,7 +544,7 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish chequered stripe — projected into isometric space (Monaco CP0: x=130, y=550)
+  // Start/finish chequered stripe — perpendicular to main straight (Monaco CP0: x=130, y=550)
   const pm1 = project(130, 550 - ROAD_HALF_W);
   const pm2 = project(130, 550 + ROAD_HALF_W);
   ctx.save();
@@ -601,36 +596,21 @@ function drawCar(car, carIdx) {
   const θ   = car.angle + Math.PI / 2;
   const COS = Math.cos(θ), SIN = Math.sin(θ);
 
-  // Combined rotate + isometric projection matrix
-  const ma = ISO.sx * (COS - SIN);
-  const mb = ISO.sy * (COS + SIN);
-  const mc = -ISO.sx * (SIN + COS);
-  const md = ISO.sy * (COS - SIN);
-
-  const ELEV = 5;
+  // Standard 2D rotation matrix (top-down view)
+  const ma = COS, mb = SIN, mc = -SIN, md = COS;
 
   // Ground shadow
   ctx.save();
-  ctx.globalAlpha = 0.22;
+  ctx.globalAlpha = 0.20;
   ctx.fillStyle = '#000';
-  ctx.translate(sp.x + 4, sp.y + 9);
+  ctx.translate(sp.x + 3, sp.y + 3);
   ctx.transform(ma, mb, mc, md, 0, 0);
   ctx.beginPath();
-  ctx.ellipse(0, 0, 14, 26, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, 11, 24, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Depth / side face (drawn slightly below, darker)
-  ctx.save();
-  ctx.translate(sp.x, sp.y + ELEV);
-  ctx.transform(ma, mb, mc, md, 0, 0);
-  ctx.fillStyle = darken(s.body, 0.52);
-  ctx.fillRect(-9, -22, 18, 42);
-  ctx.fillStyle = darken(s.stripe, 0.52);
-  ctx.fillRect(-14, 17, 28, 4);
-  ctx.restore();
-
-  // Top face
+  // Car body (top-down)
   ctx.save();
   ctx.translate(sp.x, sp.y);
   ctx.transform(ma, mb, mc, md, 0, 0);
