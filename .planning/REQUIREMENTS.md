@@ -29,9 +29,9 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 ### Múltiples Autos
 
 - [ ] **CARS-01**: Soportar 4 autos simultáneos por carrera: 1 jugador humano + 3 IAs; reemplazar el par fijo `local`/`remote` por un array `cars[]`
-- [ ] **CARS-02**: Cada rival IA tiene una personalidad de carrera: *agresivo* (línea ajustada, alta velocidad, más daño en colisiones), *defensivo* (frena más, línea conservadora, menos accidentes), *consistente* (variación mínima, ritmo estable)
-- [ ] **CARS-03**: Sistema de colisiones entre los 4 autos: `resolveCarCollision()` extendido para todas las combinaciones de pares
-- [ ] **CARS-04**: HUD de posición muestra la clasificación de los 4 autos en tiempo real (P1/P2/P3/P4)
+- [x] **CARS-02**: Cada rival IA tiene una personalidad de carrera: *agresivo* (línea ajustada, alta velocidad, más daño en colisiones), *defensivo* (frena más, línea conservadora, menos accidentes), *consistente* (variación mínima, ritmo estable)
+- [x] **CARS-03**: Sistema de colisiones entre los 4 autos: `resolveCarCollision()` extendido para todas las combinaciones de pares
+- [x] **CARS-04**: HUD de posición muestra la clasificación de los 4 autos en tiempo real (P1/P2/P3/P4)
 
 ### IA Mejorada
 
@@ -125,9 +125,9 @@ Capacidades ya shiipeadas en v1 que no se tocan en v2:
 | TRACK-03 | Phase 2 | Pending |
 | TRACK-04 | Phase 2 | Complete |
 | CARS-01 | Phase 2 | Pending |
-| CARS-02 | Phase 2 | Pending |
-| CARS-03 | Phase 2 | Pending |
-| CARS-04 | Phase 2 | Pending |
+| CARS-02 | Phase 2 | Complete |
+| CARS-03 | Phase 2 | Complete |
+| CARS-04 | Phase 2 | Complete |
 | AI-01 | Phase 3 | Pending |
 | AI-02 | Phase 3 | Pending |
 | AI-03 | Phase 3 | Pending |
