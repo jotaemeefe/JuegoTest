@@ -234,7 +234,7 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
 let wasOnTrack      = true;
-let prevPlayerRank  = 4; // tracks player classification for overtake celebration (CARS-04)
+let prevPlayerRank  = Infinity; // tracks player classification for overtake celebration (CARS-04)
 let shakeTimer      = null;
 let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 
@@ -1153,10 +1153,12 @@ function loop(ts) {
     drawFloatingTexts(dt);
 
     // Damage warning at 60% / 80% (player only)
+    // Both checks are independent so both can fire in the same frame if damage jumps 0→80+ (WR-06)
     if (cars[0].damage >= 60 && damageWarningShown < 60) {
       damageWarningShown = 60;
       addFloatingText('⚠ DAÑO ALTO', '#f97316', 240, 200, 18);
-    } else if (cars[0].damage >= 80 && damageWarningShown < 80) {
+    }
+    if (cars[0].damage >= 80 && damageWarningShown < 80) {
       damageWarningShown = 80;
       addFloatingText('⛔ COCHE CRÍTICO', '#ef4444', 240, 200, 20);
     }
@@ -1174,18 +1176,25 @@ function loop(ts) {
 
     // Win / total-damage check
     if (winner === null) {
-      if (cars[0].damage >= 100) {
-        // Player destroyed — first AI that hasn't finished wins, or cars[1]
-        winner = 1; stopEngine(); stopBrakeSound(); phase = 'done';
-      } else {
-        for (let i = 0; i < cars.length; i++) {
-          if (cars[i].finished) { winner = i; break; }
+      // finished check takes priority over damage (CR-03)
+      for (let i = 0; i < cars.length; i++) {
+        if (cars[i].finished) { winner = i; break; }
+      }
+      if (winner === null && cars[0].damage >= 100) {
+        // Player destroyed — find the furthest-ahead non-player car (CR-01)
+        const cpScore = c => c.finished ? Infinity
+          : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
+        let bestIdx = 1, bestScore = -Infinity;
+        for (let i = 1; i < cars.length; i++) {
+          const s = cpScore(cars[i]);
+          if (s > bestScore) { bestScore = s; bestIdx = i; }
         }
-        if (winner !== null) {
-          stopEngine(); stopBrakeSound();
-          if (gameMode === 'multi' && winner === 0) Net.send({ type: 'finish' });
-          phase = 'done';
-        }
+        winner = bestIdx;
+      }
+      if (winner !== null) {
+        stopEngine(); stopBrakeSound();
+        if (gameMode === 'multi' && winner === 0) Net.send({ type: 'finish' });
+        phase = 'done';
       }
     }
   } else if (phase === 'done') {
@@ -1240,7 +1249,7 @@ function onMsg(data) {
     // Normalize angle to [-PI, PI] to reject garbage large values from malicious peers
     const normalizedAngle = ((angle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
     if (!isFinite(speed) || speed < 0 || speed > MAX_SPD_ON * 1.5) return;
-    if (typeof lap !== 'number' || lap < 0 || lap > TOTAL_LAPS) return;
+    if (typeof lap !== 'number' || lap < 0 || lap >= TOTAL_LAPS) return;
     if (typeof cp  !== 'number' || cp  < 0 || cp  >= CPS.length) return;
     // Multiplayer: remote car lives in cars[1]
     if (!cars[1]) return;
@@ -1359,7 +1368,7 @@ function resetGame() {
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
-  prevPlayerRank     = 4;  // initialise to last place — CARS-04 HUD P1-P4
+  prevPlayerRank     = Infinity;  // suppress spurious overtake on race start — CARS-04 HUD P1-P4 (WR-04)
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }
@@ -1692,5 +1701,4 @@ document.getElementById('btn-cancel-rival').addEventListener('click', () => goTo
   document.addEventListener(ev, () => { try { getAudioCtx(); } catch(_){} }, { once: true })
 );
 
-startResultPoll();
 updateLobbyRecord();
