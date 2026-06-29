@@ -89,7 +89,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 02b-01-PLAN.md — All constants: ROAD_SPINE (52 pts, 1600x2000), physics (MAX_SPD_ON=650, BRAKE_FORCE=1200, TURN_RATE=3.8), AI_WAYPOINTS (43 pts), CPS, START, TUNNEL_ZONE; extract inTunnel setter; remove drawTunnelRoof
+- [x] 02b-01-PLAN.md — All constants: ROAD_SPINE (52 pts, 1600x2000), physics (MAX_SPD_ON=650, BRAKE_FORCE=1200, TURN_RATE=3.8), AI_WAYPOINTS (43 pts), CPS, START, TUNNEL_ZONE; extract inTunnel setter; remove drawTunnelRoof
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -129,7 +129,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
 | 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
-| 2b. Monaco Overhaul | 0/4 | Planning | - |
+| 2b. Monaco Overhaul | 1/4 | In Progress | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---

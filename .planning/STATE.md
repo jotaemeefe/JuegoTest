@@ -2,25 +2,25 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 5
-status: phase_complete
-stopped_at: Completed 02-04-PLAN.md — AI personalities (CARS-02), 6-pair collision (CARS-03), HUD P1-P4 (CARS-04). Phase 2 complete.
-last_updated: "2026-06-27T23:53:00.000Z"
+current_plan: 1
+status: in_progress
+stopped_at: Completed 02b-01-PLAN.md — world-space geometry constants (ROAD_SPINE 52pt, physics 3.5x, AI_WAYPOINTS 43pt, inTunnel inline)
+last_updated: "2026-06-29T20:00:00.000Z"
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 22
+  total_plans: 12
+  completed_plans: 10
+  percent: 15
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 2-B — Monaco Gameplay Overhaul (PLANNING)
-**Current plan:** 0 (context gathered, ready for plan-phase)
-**Last action:** Gathered context for Phase 2-B — cámara rotatoria, Monaco rediseñado desde cero a escala 3.5x, física re-tuneada. Usuario insatisfecho con jugabilidad de Phase 2.
+**Active phase:** Phase 2-B — Monaco Gameplay Overhaul (IN PROGRESS)
+**Current plan:** 1 of 5 (02b-01 complete)
+**Last action:** Completed 02b-01 — all world-space geometry constants replaced: ROAD_SPINE 52pt (1600x2000), physics 3.5x scale, AI_WAYPOINTS 43pt, inTunnel inline setter, drawTunnelRoof removed.
 **Resumed:** 2026-06-29
 
 ## Project Reference
@@ -54,6 +54,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 02-02 | 02-monaco-4-cars | 4 min | 1 | 1 |
 | 02-03 | 02-monaco-4-cars | 12 min | 2 | 1 |
 | 02-04 | 02-monaco-4-cars | 18 min | 2 | 1 |
+| 02b-01 | 02b-monaco-overhaul | 12 min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -71,6 +72,10 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - drawTunnelRoof() uses polygon roof approach — darkens all cars in tunnel simultaneously without per-car checks — COMPLETED in 02-03 (d88b67b)
 - BUG-OFFTRACK root cause: vignette rendered AFTER drawCar() calls; fix: moved before drawCar() calls — COMPLETED in 02-03 (d88b67b)
 - car.inTunnel boolean set in drawTunnelRoof() each frame for Phase 3 audio — COMPLETED in 02-03 (d88b67b)
+- ROAD_SPINE redesigned 52pt in 1600x2000 world space (3.5x scale) — COMPLETED in 02b-01 (1431c6f)
+- Physics constants 3.5x: MAX_SPD_ON=650, MAX_SPD_OFF=250, AUTO_ACCEL=550, BRAKE_FORCE=1200, CAR_RADIUS=18, TURN_RATE=3.8, ROAD_HALF_W=80 — COMPLETED in 02b-01 (1431c6f)
+- AI_WAYPOINTS 43pt in new world space; AI_WP_REACH=80 — COMPLETED in 02b-01 (c350cb2)
+- drawTunnelRoof() removed; car.inTunnel setter extracted as inline forEach in racing phase — COMPLETED in 02b-01 (c350cb2)
 - PERSONALITIES const: aggressive (speedMult 1.05, brakeMult 0.8, damageMult 1.5), defensive (speedMult 0.92, brakeMult 1.2, damageMult 0.8), consistent (all 1.0) — COMPLETED in 02-04 (4a4d71d)
 - Personality assignment: cars[1]=aggressive, cars[2]=defensive, cars[3]=consistent every race (fixed mapping) — COMPLETED in 02-04 (4a4d71d)
 - PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]] loop replaces single player-vs-cars[1] collision — COMPLETED in 02-04 (4a4d71d)
@@ -121,13 +126,13 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Session Continuity
 
-**Last session:** 2026-06-27
-**Stopped at:** Completed 02-04-PLAN.md — Phase 2 complete. PERSONALITIES, 6-pair collision, HUD P1-P4.
-**Resume file:** None — proceed to Phase 3 planning
+**Last session:** 2026-06-29
+**Stopped at:** Completed 02b-01-PLAN.md — world-space geometry constants replaced. Next: 02b-02 (drawTrack simplification + minimap).
+**Resume file:** None — continue Phase 2-B with 02b-02
 
 ## Resume Instructions
 
-Phase 2 complete. All requirements (CARS-02, CARS-03, CARS-04, TRACK-02, TRACK-03) implemented. Next: execute Phase 3 — AI braking, audio, and VFX polish.
+02b-01 complete. All geometry constants in new 1600x2000 world space. Next: execute 02b-02 — simplify drawTrack() (remove old color blocks, big fillRect), add drawMinimap() function.
 
 ---
 *State initialized: 2026-06-26*
