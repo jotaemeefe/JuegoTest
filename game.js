@@ -147,32 +147,53 @@ function rivalDiff(skill) {
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
 
-// Monaco AI navigation waypoints — 24 points CW, extra density at hairpin & Rascasse
+// Monaco AI navigation waypoints — 43 points CW, new 1600x2000 world space (D-09)
+// Dense sections: Loews hairpin (WP 15-19, ~40px spacing) for tight corner precision
+// Loop handled by modulo: car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length
 const AI_WAYPOINTS = [
-  [130, 550],  //  0  Meta / main straight
-  [220, 550],  //  1  main straight east
-  [270, 535],  //  2  Sainte-Dévote entry
-  [285, 510],  //  3  Sainte-Dévote apex
-  [293, 455],  //  4  Beau Rivage climb
-  [312, 375],  //  5  Massenet
-  [355, 315],  //  6  Casino Square
-  [368, 270],  //  7  Mirabeau entry
-  [375, 245],  //  8  Mirabeau
-  [387, 215],  //  9  Grand Hotel entry
-  [404, 193],  // 10  hairpin outer
-  [410, 183],  // 11  hairpin apex 1
-  [400, 174],  // 12  hairpin apex 2 (tightest)
-  [378, 176],  // 13  hairpin inner
-  [360, 183],  // 14  hairpin exit
-  [335, 215],  // 15  Mirabeau Bas descent
-  [312, 270],  // 16  Portier
-  [325, 300],  // 17  tunnel entry
-  [395, 313],  // 18  tunnel mid
-  [435, 310],  // 19  tunnel exit / Nouvelle Chicane
-  [430, 370],  // 20  Tabac
-  [405, 420],  // 21  Swimming Pool
-  [355, 480],  // 22  La Rascasse
-  [310, 525],  // 23  Antony Noghès
+  [520,  1820],  //  0  Meta / main straight start
+  [700,  1820],  //  1  main straight mid
+  [870,  1820],  //  2  main straight east
+  [960,  1750],  //  3  Sainte-Dévote entry
+  [985,  1640],  //  4  Sainte-Dévote apex
+  [975,  1500],  //  5  Beau Rivage lower
+  [955,  1350],  //  6  Beau Rivage upper
+  [925,  1150],  //  7  Massenet
+  [890,  1000],  //  8  Casino entry
+  [840,   920],  //  9  Casino apex
+  [780,   865],  // 10  Mirabeau entry
+  [700,   825],  // 11  Mirabeau
+  [610,   780],  // 12  Mirabeau Bas upper
+  [520,   745],  // 13  Grand Hotel entry
+  [440,   710],  // 14  hairpin approach
+  [370,   665],  // 15  hairpin outer entry     ← Loews dense section start
+  [340,   620],  // 16  Loews entry arc
+  [332,   570],  // 17  Loews apex (tightest)
+  [345,   520],  // 18  Loews exit arc
+  [385,   485],  // 19  hairpin exit lower       ← Loews dense section end
+  [440,   472],  // 20  Mirabeau Bas entry
+  [520,   505],  // 21  Mirabeau Bas descent
+  [600,   520],  // 22  Portier upper
+  [670,   565],  // 23  Portier apex
+  [720,   650],  // 24  tunnel entry
+  [800,   760],  // 25  tunnel entry arc
+  [920,   840],  // 26  tunnel mid
+  [1050,  860],  // 27  tunnel apex / exit  ← CP3
+  [1160,  855],  // 28  tunnel exit
+  [1215,  870],  // 29  Nouvelle Chicane entry (left)
+  [1210,  930],  // 30  Chicane apex
+  [1175,  975],  // 31  Chicane exit (right)
+  [1165, 1080],  // 32  Tabac
+  [1185, 1200],  // 33  Swimming Pool entry
+  [1185, 1330],  // 34  Swimming Pool mid
+  [1140, 1440],  // 35  Swimming Pool exit
+  [1050, 1490],  // 36  Rascasse approach
+  [960,  1500],  // 37  Rascasse apex
+  [890,  1475],  // 38  Rascasse exit
+  [830,  1555],  // 39  Antony Noghès upper
+  [740,  1660],  // 40  Antony Noghès lower
+  [620,  1770],  // 41  final straight entry
+  [420,  1810],  // 42  final straight mid
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -436,32 +457,6 @@ function drawSpinePath() {
 //   → [1140,858] → Nouvelle Chicane entry [1195,845]. Covers Portier exit through Nouvelle Chicane entry.
 const TUNNEL_ZONE = { x1: 730, y1: 720, x2: 1180, y2: 920 };
 
-function drawTunnelRoof() {
-  // Update car.inTunnel flag for each car (used by audio in Phase 3)
-  cars.forEach(car => {
-    car.inTunnel = (car.x >= TUNNEL_ZONE.x1 && car.x <= TUNNEL_ZONE.x2 &&
-                    car.y >= TUNNEL_ZONE.y1 && car.y <= TUNNEL_ZONE.y2);
-  });
-
-  // Project the 4 corners of the tunnel bounding box into screen space
-  const tl = project(TUNNEL_ZONE.x1, TUNNEL_ZONE.y1);
-  const tr = project(TUNNEL_ZONE.x2, TUNNEL_ZONE.y1);
-  const br = project(TUNNEL_ZONE.x2, TUNNEL_ZONE.y2);
-  const bl = project(TUNNEL_ZONE.x1, TUNNEL_ZONE.y2);
-
-  ctx.save();
-  ctx.globalAlpha = 0.68;
-  ctx.fillStyle = '#0d0d1a';
-  ctx.beginPath();
-  ctx.moveTo(tl.x, tl.y);
-  ctx.lineTo(tr.x, tr.y);
-  ctx.lineTo(br.x, br.y);
-  ctx.lineTo(bl.x, bl.y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
 
 function drawTrack() {
   // Ground — Monaco city grey (replaces green)
@@ -783,7 +778,7 @@ function updateCar(car, dt, damage = 0) {
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
-const AI_WP_REACH = 30; // px radius to advance to next waypoint (reduced for Monaco tight corners)
+const AI_WP_REACH = 80; // px radius to advance to next waypoint (3.5x scale; naive 30*3.5=105 but 80 used for tighter corner precision at Loews)
 
 function updateAI(car, dt) {
   if (car.finished) return;
@@ -1096,6 +1091,12 @@ function loop(ts) {
     if (keys.down && cars[0].speed > 20) startBrakeSound();
     else stopBrakeSound();
 
+    // Update car.inTunnel flag for each car (used by Phase 3 audio)
+    cars.forEach(car => {
+      car.inTunnel = (car.x >= TUNNEL_ZONE.x1 && car.x <= TUNNEL_ZONE.x2 &&
+                      car.y >= TUNNEL_ZONE.y1 && car.y <= TUNNEL_ZONE.y2);
+    });
+
     // Render — draw back-to-front so player (cars[0]) is on top
     drawTrack();
 
@@ -1114,8 +1115,6 @@ function loop(ts) {
       drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
       drawCar(cars[0], 0);
     }
-    // Tunnel roof drawn AFTER all drawCar() so it darkens cars inside the tunnel
-    drawTunnelRoof();
 
     // Off-track damage + shake (player car only) — damage logic kept here, vignette moved above
     if (!onTrk) {
@@ -1201,8 +1200,6 @@ function loop(ts) {
       drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
       drawCar(cars[0], 0);
     }
-    // Tunnel roof drawn AFTER all drawCar() in done phase as well
-    drawTunnelRoof();
     drawWin(winner === 0);
   }
 
