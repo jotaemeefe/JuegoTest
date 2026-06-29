@@ -11,6 +11,7 @@
 
 - [ ] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
 - [x] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
+- [ ] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
 - [ ] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects, and UI redesign.
 
 ---
@@ -71,10 +72,41 @@ Plans:
 
 - [x] 02-04-PLAN.md — CARS-02 + CARS-03 + CARS-04: personalidades IA, colisión 6 pares, HUD P1-P4
 
+### Phase 2b: Monaco Gameplay Overhaul
+
+**Goal:** The game is fundamentally more fun and playable: rotating follow camera so the car always points up on screen, Monaco redesigned from scratch at 3.5x scale (1600x2000 world space), physics re-tuned proportionally, minimap added for global circuit awareness.
+**Depends on:** Phase 2
+**Requirements:** TRACK-01, TRACK-04 (geometry and checkpoints in new world space)
+**Success Criteria:**
+
+1. The player car always points UP (↑) on screen regardless of direction of travel — the world rotates around the car (Micro Machines / RC Pro-Am camera style).
+2. The Monaco circuit in 1600x2000 world space is navigable: Loews hairpin requires genuine braking (~30-40% speed), the tunnel section runs fast, the straight feels satisfying.
+3. A minimap in the top-right corner (100x120px) shows the circuit outline and all 4 car positions in real time.
+4. All HUD elements (P1-P4, lap counter, damage bar) remain static on screen — they do not rotate with the world.
+5. Zero JavaScript console errors during any game phase (countdown, racing, done).
+
+**Plans:** 4 plans in 4 sequential waves
+Plans:
+**Wave 1**
+
+- [ ] 02b-01-PLAN.md — All constants: ROAD_SPINE (52 pts, 1600x2000), physics (MAX_SPD_ON=650, BRAKE_FORCE=1200, TURN_RATE=3.8), AI_WAYPOINTS (43 pts), CPS, START, TUNNEL_ZONE; extract inTunnel setter; remove drawTunnelRoof
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02b-02-PLAN.md — Rewrite drawTrack(): fillRect(-4000,-4000,8000,8000) background, kerb dashes at [60,60] scale, remove environment colour blocks and watermark, new META stripe at x=520
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02b-03-PLAN.md — Camera transform in loop() (ctx.save/translate/rotate/translate/restore), move 6 screen-space elements after restore, add drawMinimap() function, update drawOffTrackVignette() center to screen space
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 02b-04-PLAN.md — Integration verification: automated checks + human visual checkpoint (camera rotation, Loews playability, AI circulation, minimap, zero console errors)
+
 ### Phase 3: AI, Audio & Polish
 
 **Goal:** Racing feels tense and dramatic: AI opponents brake for corners and have distinct driving personalities, background music builds atmosphere, and visual effects celebrate overtakes and communicate damage.
-**Depends on:** Phase 2
+**Depends on:** Phase 2b
 **Requirements:** AI-01, AI-02, AI-03, AUDIO-01, AUDIO-02, AUDIO-03, VFX-01, VFX-02, VFX-03, VFX-04, VFX-05, DRS-01, UI-07
 **Success Criteria:**
 
@@ -97,6 +129,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
 | 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
+| 2b. Monaco Overhaul | 0/4 | Planning | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---
@@ -120,10 +153,10 @@ Plans:
 | UI-04 | Phase 1 |
 | UI-05 | Phase 1 |
 | UI-06 | Phase 1 |
-| TRACK-01 | Phase 2 |
-| TRACK-02 | Phase 2 |
-| TRACK-03 | Phase 2 |
-| TRACK-04 | Phase 2 |
+| TRACK-01 | Phase 2 / Phase 2b |
+| TRACK-02 | Phase 2 (deferred to Phase 3) |
+| TRACK-03 | Phase 2 (deferred to Phase 3) |
+| TRACK-04 | Phase 2 / Phase 2b |
 | CARS-01 | Phase 2 |
 | CARS-02 | Phase 2 |
 | CARS-03 | Phase 2 |
@@ -148,6 +181,7 @@ Plans:
 
 *Roadmap created: 2026-06-26*
 *Plans added: 2026-06-26 (Phase 1: 4 plans across 2 waves)*
+*Phase 2b added: 2026-06-29 (correction phase — rotating camera + Monaco 3.5x scale)*
 
 ---
 
