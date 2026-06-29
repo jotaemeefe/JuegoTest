@@ -940,15 +940,6 @@ function loop(ts) {
 
   if (phase === 'countdown') {
     cdTimer -= dt;
-    drawTrack();
-    // Draw all cars in countdown (back to front)
-    if (gameMode === 'solo') {
-      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
-    } else {
-      drawCar(cars[1], 1);
-      drawCar(cars[0], 0);
-    }
-    drawCountdown(countdown);
 
     if (cdTimer <= 0) {
       countdown--;
@@ -1034,26 +1025,10 @@ function loop(ts) {
                       car.y >= TUNNEL_ZONE.y1 && car.y <= TUNNEL_ZONE.y2);
     });
 
-    // Render — draw back-to-front so player (cars[0]) is on top
-    drawTrack();
-
-    // BUG-OFFTRACK fix: draw off-track vignette BEFORE cars so cars always render on top
+    // Compute onTrk before render block — used in screen-space section after ctx.restore()
     const onTrk = isOnTrack(cars[0].x, cars[0].y);
-    if (!onTrk) {
-      drawOffTrackVignette(0.55);
-    }
 
-    if (gameMode === 'solo') {
-      // Draw in reverse order: cars[3], cars[2], cars[1], cars[0]
-      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
-    } else {
-      // Multiplayer: interpolate remote car position
-      const rp = remoteRenderPos();
-      drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
-      drawCar(cars[0], 0);
-    }
-
-    // Off-track damage + shake (player car only) — damage logic kept here, vignette moved above
+    // Off-track damage + shake (player car only)
     if (!onTrk) {
       cars[0].damage = Math.min(100, cars[0].damage + 1.2 * dt);
       if (wasOnTrack) {
@@ -1071,18 +1046,6 @@ function loop(ts) {
     }
     wasOnTrack = onTrk;
 
-    // Checkpoint flash (green border sweep)
-    if (cpFlash > 0) {
-      cpFlash -= dt;
-      const a2 = Math.min(1, cpFlash * 6);
-      ctx.strokeStyle = `rgba(16,185,129,${a2 * 0.7})`;
-      ctx.lineWidth = 10;
-      ctx.strokeRect(5, 5, 470, 630);
-    }
-
-    // Floating text overlays
-    drawFloatingTexts(dt);
-
     // Damage warning at 60% / 80% (player only)
     // Both checks are independent so both can fire in the same frame if damage jumps 0→80+ (WR-06)
     if (cars[0].damage >= 60 && damageWarningShown < 60) {
@@ -1093,9 +1056,6 @@ function loop(ts) {
       damageWarningShown = 80;
       addFloatingText('⛔ COCHE CRÍTICO', '#ef4444', 240, 200, 20);
     }
-
-    // Damage bar drawn last so it's always on top
-    drawDamageBar(cars[0].damage);
 
     // Lap timer HUD
     if (lapStartTime > 0) {
@@ -1128,8 +1088,15 @@ function loop(ts) {
         phase = 'done';
       }
     }
-  } else if (phase === 'done') {
+
+    // === WORLD-SPACE RENDER (racing) ===
+    ctx.save();
+    ctx.translate(240, 380);
+    ctx.rotate(-cars[0].angle - Math.PI / 2);
+    ctx.translate(-cars[0].x, -cars[0].y);
+
     drawTrack();
+
     if (gameMode === 'solo') {
       for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
     } else {
@@ -1137,7 +1104,72 @@ function loop(ts) {
       drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
       drawCar(cars[0], 0);
     }
+
+    ctx.restore();
+
+    // === SCREEN-SPACE RENDER (racing) ===
+    drawMinimap();
+
+    if (!onTrk) drawOffTrackVignette(0.55);
+
+    // Checkpoint flash (green border sweep)
+    if (cpFlash > 0) {
+      cpFlash -= dt;
+      const a2 = Math.min(1, cpFlash * 6);
+      ctx.strokeStyle = `rgba(16,185,129,${a2 * 0.7})`;
+      ctx.lineWidth = 10;
+      ctx.strokeRect(5, 5, 470, 630);
+    }
+
+    drawFloatingTexts(dt);
+    drawDamageBar(cars[0].damage);
+
+  } else if (phase === 'done') {
+
+    // === WORLD-SPACE RENDER (done) ===
+    ctx.save();
+    ctx.translate(240, 380);
+    ctx.rotate(-cars[0].angle - Math.PI / 2);
+    ctx.translate(-cars[0].x, -cars[0].y);
+
+    drawTrack();
+
+    if (gameMode === 'solo') {
+      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
+    } else {
+      const rp = remoteRenderPos();
+      drawCar({ ...rp, finished: cars[1].finished, rivalData: null, isPlayer: false }, 1);
+      drawCar(cars[0], 0);
+    }
+
+    ctx.restore();
+
+    // === SCREEN-SPACE RENDER (done) ===
+    drawMinimap();
     drawWin(winner === 0);
+  }
+
+  // === WORLD-SPACE RENDER (countdown — placed after phase branches to share structure) ===
+  if (phase === 'countdown') {
+    ctx.save();
+    ctx.translate(240, 380);
+    ctx.rotate(-cars[0].angle - Math.PI / 2);
+    ctx.translate(-cars[0].x, -cars[0].y);
+
+    drawTrack();
+
+    if (gameMode === 'solo') {
+      for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
+    } else {
+      drawCar(cars[1], 1);
+      drawCar(cars[0], 0);
+    }
+
+    ctx.restore();
+
+    // === SCREEN-SPACE RENDER (countdown) ===
+    drawMinimap();
+    drawCountdown(countdown);
   }
 
   rafId = requestAnimationFrame(loop);
