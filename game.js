@@ -882,13 +882,63 @@ function drawWin(won) {
 
 // ── Off-track vignette ────────────────────────────────────────────────────────
 function drawOffTrackVignette(alpha) {
-  const center = project(240, 310);
-  const grad = ctx.createRadialGradient(center.x, center.y, 100, center.x, center.y, 290);
+  // Screen-space center at camera focal point (240, 380) per D-02 — called after ctx.restore()
+  const grad = ctx.createRadialGradient(240, 380, 100, 240, 380, 280);
   grad.addColorStop(0,   `rgba(180,0,0,0)`);
   grad.addColorStop(0.5, `rgba(180,0,0,0)`);
   grad.addColorStop(1,   `rgba(180,0,0,${alpha})`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 480, 640);
+}
+
+// ── Minimap ────────────────────────────────────────────────────────────────────
+function drawMinimap() {
+  const MAP_W = 100, MAP_H = 120, PAD = 6;
+  const MAP_X = 374, MAP_Y = 6;  // 480 - 100 - 6 = 374
+
+  // Compute ROAD_SPINE bounding box
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of ROAD_SPINE) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+  const scale = Math.min((MAP_W - PAD * 2) / rangeX, (MAP_H - PAD * 2) / rangeY);
+  const ox = MAP_X + PAD + (MAP_W - PAD * 2 - rangeX * scale) / 2 - minX * scale;
+  const oy = MAP_Y + PAD + (MAP_H - PAD * 2 - rangeY * scale) / 2 - minY * scale;
+  const toMap = (wx, wy) => [ox + wx * scale, oy + wy * scale];
+
+  ctx.save();
+
+  // Background
+  ctx.globalAlpha = 0.75;
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(MAP_X, MAP_Y, MAP_W, MAP_H);
+  ctx.globalAlpha = 1;
+
+  // Circuit outline (ROAD_SPINE polyline)
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ROAD_SPINE.forEach(([x, y], i) => {
+    const [mx, my] = toMap(x, y);
+    i === 0 ? ctx.moveTo(mx, my) : ctx.lineTo(mx, my);
+  });
+  ctx.stroke();
+
+  // Car dots: player (i=0) = white r=3, AI = rivalData color r=2
+  cars.forEach((car, i) => {
+    const [mx, my] = toMap(car.x, car.y);
+    ctx.beginPath();
+    ctx.arc(mx, my, i === 0 ? 3 : 2, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? '#ffffff' : (car.rivalData?.body ?? '#888');
+    ctx.fill();
+  });
+
+  ctx.restore();
 }
 
 // ── Damage bar ────────────────────────────────────────────────────────────────
