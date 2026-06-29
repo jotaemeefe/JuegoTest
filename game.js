@@ -2,61 +2,72 @@
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TOTAL_LAPS    = 3;
-const MAX_SPD_ON    = 190;   // px/s on track
-const MAX_SPD_OFF   = 72;    // px/s off track (gradual, not abrupt)
-const AUTO_ACCEL    = 160;   // px/s² constant push (eq speed ≈ 145 px/s)
-const FRICTION_K    = 1.1;   // speed lost per second (proportional)
-const BRAKE_FORCE   = 350;   // px/s² when braking
-const TURN_RATE     = 4.5;   // rad/s — increased for Monaco's tight streets (ROAD_HALF_W=28)
+const MAX_SPD_ON    = 650;   // px/s on track (3.5x scale — D-13)
+const MAX_SPD_OFF   = 250;   // px/s off track (3.5x scale — D-13)
+const AUTO_ACCEL    = 550;   // px/s² constant push (3.5x scale — D-13)
+const FRICTION_K    = 1.1;   // speed lost per second (proportional, unchanged — D-15)
+const BRAKE_FORCE   = 1200;  // px/s² when braking (3.5x scale — D-13)
+const TURN_RATE     = 3.8;   // rad/s — independent tuning for 3.5x Monaco (D-14)
 const NET_MS        = 50;    // position broadcast interval
-const CAR_RADIUS    = 14;    // px, for car-car collision detection
+const CAR_RADIUS    = 18;    // px, for car-car collision detection (D-13)
 
-// Circuit de Monaco — clockwise, 34-point polyline, world-space 480×640
+// Circuit de Monaco — clockwise, 52-point polyline, world-space 1600×2000 (3.5x scale)
 // Sequence: Meta → Sainte-Dévote → Beau Rivage → Massenet → Casino → Mirabeau
-//           → Grand Hotel Hairpin (U-turn) → Portier → Tunnel → Nouvelle Chicane
-//           → Tabac → Swimming Pool → La Rascasse → Antony Noghès → Meta
-const ROAD_HALF_W = 28;
+//           → Grand Hotel Hairpin (U-turn, spine radius ≈100px) → Portier → Tunnel
+//           → Nouvelle Chicane → Tabac → Swimming Pool → La Rascasse → Antony Noghès → Meta
+const ROAD_HALF_W = 80;
 const ROAD_SPINE = [
-  // ── Meta / main straight (west → east, bottom of canvas) ──────────────────
-  [ 60, 550], [130, 550], [220, 550],
-  // ── Sainte-Dévote (tight right, climbing) ──────────────────────────────────
-  [255, 545], [275, 530], [285, 510],
-  // ── Beau Rivage + Massenet (uphill sweep toward Casino plateau) ────────────
-  [290, 475], [295, 440], [305, 395],
-  [320, 355],
-  // ── Casino Square + Mirabeau (right then left, upper-right area) ──────────
-  [345, 315], [365, 275], [375, 245],
-  // ── Grand Hotel Hairpin (tightest turn — near U-turn, upper apex) ─────────
-  [385, 215], [400, 195], [410, 185], [405, 175], [385, 175], [365, 182],
-  // ── Mirabeau Bas + Portier (descending right toward tunnel) ───────────────
-  [345, 200], [325, 230], [310, 265],
-  // ── Tunnel (rightward run at sea level) ───────────────────────────────────
-  [320, 295], [370, 310], [420, 315],
-  // ── Nouvelle Chicane + Tabac (left-right after tunnel exit) ───────────────
-  [440, 305], [435, 355], [415, 385],
-  // ── Swimming Pool + La Rascasse (harbour chicane, tight right) ────────────
-  [395, 420], [365, 465], [345, 495],
-  // ── Antony Noghès (final right back to start/finish) ──────────────────────
-  [300, 525], [240, 547],
-  // ── Close loop (return to Meta) ───────────────────────────────────────────
-  [ 60, 550],
+  // ── META / Main Straight (left→right at y≈1820) ──────────────────────────
+  [200, 1820], [350, 1820], [520, 1820], [700, 1820], [840, 1820],
+  // ── Sainte-Dévote (right turn, climbing — wide radius ~200px) ─────────────
+  [900, 1810], [950, 1780], [980, 1730], [990, 1660],
+  // ── Beau Rivage (uphill sweep — gentle curve drifting left) ──────────────
+  [985, 1580], [975, 1480], [960, 1380],
+  // ── Massenet (sweeping right toward Casino plateau) ───────────────────────
+  [950, 1300], [940, 1200], [920, 1100],
+  // ── Casino Square / Mirabeau entry (plateau, right-bearing arc) ──────────
+  [900, 1030], [870, 960], [820, 900],
+  // ── Mirabeau (descending left, entering hairpin section) ─────────────────
+  [750, 850], [670, 800], [590, 760],
+  // ── Grand Hotel Hairpin approach (from east) ─────────────────────────────
+  [520, 730], [450, 700], [380, 665],
+  // ── Loews U-turn (spine radius ≈ 100px, ROAD_HALF_W=80) ──────────────────
+  [340, 620], [330, 570], [340, 520],
+  [370, 485], [420, 470], [470, 480],
+  // ── Hairpin exit / Mirabeau Bas (accelerating downhill eastward) ──────────
+  [510, 505], [560, 510],
+  // ── Portier (right turn descending to tunnel) ─────────────────────────────
+  [620, 520], [680, 555], [720, 620], [730, 700],
+  // ── Tunnel (rightward run, gentle curve) ─────────────────────────────────
+  [760, 760], [850, 810], [940, 845], [1050, 860], [1140, 858],
+  // ── Nouvelle Chicane (left-right chicane after tunnel exit) ──────────────
+  [1195, 845], [1220, 890], [1195, 945], [1170, 985],
+  // ── Tabac → Swimming Pool → La Rascasse ──────────────────────────────────
+  [1165, 1065], [1185, 1175], [1190, 1290], [1165, 1410], [1120, 1470],
+  // ── La Rascasse (tight right hairpin) ────────────────────────────────────
+  [1055, 1495], [970, 1505], [900, 1480],
+  // ── Antony Noghès (final right turn back to straight) ────────────────────
+  [855, 1555], [770, 1650], [660, 1755], [520, 1800], [350, 1815],
+  // ── Close loop ───────────────────────────────────────────────────────────
+  [200, 1820],
 ];
 
 // Monaco checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
+// New world-space positions: CP0=Meta, CP1=Casino, CP2=Loews apex, CP3=Tunnel mid
 const CPS = [
-  { x: 130, y: 550, r: 80 },  // 0 META — main straight
-  { x: 365, y: 265, r: 70 },  // 1 Casino / Mirabeau plateau
-  { x: 400, y: 185, r: 65 },  // 2 Grand Hotel Hairpin apex
-  { x: 415, y: 312, r: 70 },  // 3 Tunnel / post-tunnel exit
+  { x: 520,  y: 1820, r: 200 },  // 0  META — main straight (finish line)
+  { x: 900,  y: 1000, r: 200 },  // 1  Casino / Mirabeau plateau
+  { x: 360,  y: 550,  r: 220 },  // 2  Loews Hairpin apex
+  { x: 1050, y: 860,  r: 220 },  // 3  Tunnel mid / post-tunnel
 ];
 
-// Monaco starting grid [P1, P2, P3, P4] — main straight, 2×2 staggered formation, pointing east
-// Checkerboard layout: each pair > 35px apart (> CAR_RADIUS*2=28px) — no collision at start
+// Monaco starting grid [P1, P2, P3, P4] — main straight y≈1820, 2×2 staggered, pointing east (a:0)
+// Separation check: P1↔P2 = sqrt((580-520)²+(1826-1814)²) ≈ 61px > CAR_RADIUS*2=36px ✓
 const START = [
-  { x: 195, y: 556, a: 0 },  // P1 — player  (right col, front)  |556-550|=6 < ROAD_HALF_W=28 ✓
-  { x: 162, y: 544, a: 0 },  // P2 — AI car1  (left col, front)  |544-550|=6 < 28 ✓
-  { x: 130, y: 556, a: 0 },  // P3 — AI car2  (right col, rear)  33px behind P1 ✓
-  { x:  97, y: 544, a: 0 },  // P4 — AI car3  (left col, rear)   33px behind P2 ✓
+  { x: 580, y: 1826, a: 0 },  // P1 — player  (right col, front)
+  { x: 520, y: 1814, a: 0 },  // P2 — AI car1  (left col, front)
+  { x: 460, y: 1826, a: 0 },  // P3 — AI car2  (right col, rear)
+  { x: 400, y: 1814, a: 0 },  // P4 — AI car3  (left col, rear)
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -421,9 +432,9 @@ function drawSpinePath() {
 }
 
 // ── Tunnel zone (world-space bounding box covering the tunnel segment) ─────────
-// ROAD_SPINE tunnel: Portier [310,265] → [320,295] → [370,310] → [420,315] → [440,305]
-// Extended slightly to cover the full tunnel visual section.
-const TUNNEL_ZONE = { x1: 318, y1: 282, x2: 452, y2: 325 };
+// ROAD_SPINE tunnel: Portier exit [730,700] → [760,760] → [850,810] → tunnel mid [1050,860]
+//   → [1140,858] → Nouvelle Chicane entry [1195,845]. Covers Portier exit through Nouvelle Chicane entry.
+const TUNNEL_ZONE = { x1: 730, y1: 720, x2: 1180, y2: 920 };
 
 function drawTunnelRoof() {
   // Update car.inTunnel flag for each car (used by audio in Phase 3)
