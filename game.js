@@ -459,79 +459,21 @@ const TUNNEL_ZONE = { x1: 730, y1: 720, x2: 1180, y2: 920 };
 
 
 function drawTrack() {
-  // Ground — Monaco city grey (replaces green)
+  // Ground — large fillRect covers entire rotated world so no black corners appear
+  // when camera transform is applied (Plan 02b-03). Sized to cover 1600x2000 world
+  // plus diagonal slack for rotation at any angle.
   ctx.fillStyle = '#3a3a4a';
-  ctx.fillRect(0, 0, 480, 640);
+  ctx.fillRect(-4000, -4000, 8000, 8000);
 
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  // ── Monaco environment colour blocks (drawn before tarmac so spine paints over) ──
-
-  // Harbour water — blue area at the bottom-right (Swimming Pool / harbour zone)
-  // World-space harbour: roughly x:330-460, y:280-500
+  // ── Kerbs — dashed, slightly wider than tarmac (red/white armco-style) ────────
+  // Dash scale: [60,60] = 3.5x the old [18,18] to remain visible at new world scale
   ctx.save();
-  ctx.fillStyle = '#1a4a7a';
-  const hw_tl = project(330, 280), hw_tr = project(460, 280);
-  const hw_br = project(460, 510), hw_bl = project(330, 510);
-  ctx.beginPath();
-  ctx.moveTo(hw_tl.x, hw_tl.y);
-  ctx.lineTo(hw_tr.x, hw_tr.y);
-  ctx.lineTo(hw_br.x, hw_br.y);
-  ctx.lineTo(hw_bl.x, hw_bl.y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // Casino / Mirabeau building block — upper-right area (Casino plateau zone)
-  // World-space casino: roughly x:280-420, y:195-340
-  ctx.save();
-  ctx.fillStyle = '#c8c8c4';
-  const cb_tl = project(280, 195), cb_tr = project(420, 195);
-  const cb_br = project(420, 345), cb_bl = project(280, 345);
-  ctx.beginPath();
-  ctx.moveTo(cb_tl.x, cb_tl.y);
-  ctx.lineTo(cb_tr.x, cb_tr.y);
-  ctx.lineTo(cb_br.x, cb_br.y);
-  ctx.lineTo(cb_bl.x, cb_bl.y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // Hairpin inner area — darker block to emphasise the U-turn
-  ctx.save();
-  ctx.fillStyle = '#2a2a3a';
-  const hp_tl = project(335, 160), hp_tr = project(425, 160);
-  const hp_br = project(425, 215), hp_bl = project(335, 215);
-  ctx.beginPath();
-  ctx.moveTo(hp_tl.x, hp_tl.y);
-  ctx.lineTo(hp_tr.x, hp_tr.y);
-  ctx.lineTo(hp_br.x, hp_br.y);
-  ctx.lineTo(hp_bl.x, hp_bl.y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // Pit lane strip — dark tarmac alongside the main straight (south of spine)
-  // World-space pit: x:60-250, y:580-600
-  ctx.save();
-  ctx.fillStyle = '#1a1a1a';
-  const pl_tl = project(60, 580), pl_tr = project(250, 580);
-  const pl_br = project(250, 598), pl_bl = project(60, 598);
-  ctx.beginPath();
-  ctx.moveTo(pl_tl.x, pl_tl.y);
-  ctx.lineTo(pl_tr.x, pl_tr.y);
-  ctx.lineTo(pl_br.x, pl_br.y);
-  ctx.lineTo(pl_bl.x, pl_bl.y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // ── Kerb — dashed, slightly wider than tarmac (red/white armco-style) ─────────
-  ctx.save();
-  ctx.lineWidth = ROAD_HALF_W * 2 + 8;
-  ctx.setLineDash([18, 18]);
+  ctx.lineWidth = ROAD_HALF_W * 2 + 12;
+  ctx.setLineDash([60, 60]);
   ctx.strokeStyle = '#dc2626'; drawSpinePath(); ctx.stroke();
-  ctx.lineDashOffset = 18;
+  ctx.lineDashOffset = 60;
   ctx.strokeStyle = '#f8fafc'; drawSpinePath(); ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -541,7 +483,7 @@ function drawTrack() {
   ctx.strokeStyle = '#2d3748';
   drawSpinePath(); ctx.stroke();
 
-  // Racing line dashes
+  // Racing line dashes (keep for visual polish — thin line, scale matters less)
   ctx.save();
   ctx.setLineDash([14, 10]);
   ctx.strokeStyle = 'rgba(251,191,36,0.22)';
@@ -550,9 +492,10 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Start/finish chequered stripe — perpendicular to main straight (Monaco CP0: x=130, y=550)
-  const pm1 = project(130, 550 - ROAD_HALF_W);
-  const pm2 = project(130, 550 + ROAD_HALF_W);
+  // Start/finish chequered stripe — vertical at x=520 (CP0 position), new world space
+  // Main straight is at y≈1820 running east-west; perpendicular stripe is north-south
+  const pm1 = project(520, 1820 - ROAD_HALF_W);
+  const pm2 = project(520, 1820 + ROAD_HALF_W);
   ctx.save();
   ctx.lineWidth = 5;
   ctx.setLineDash([6, 6]);
@@ -564,17 +507,11 @@ function drawTrack() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // META label
+  // META label — slightly to the right of the stripe endpoint for visibility
   ctx.fillStyle = 'rgba(248,250,252,0.75)';
   ctx.font = 'bold 7px monospace';
   ctx.textAlign = 'center';
   ctx.fillText('META', pm1.x + 14, pm1.y - 3);
-
-  // Watermark
-  const wm = project(240, 310);
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.font = 'bold 10px monospace';
-  ctx.fillText('CIRCUIT DE MONACO · MONTE CARLO', wm.x, wm.y);
 }
 
 // ── Car drawing ───────────────────────────────────────────────────────────────
