@@ -93,7 +93,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02b-02-PLAN.md — Rewrite drawTrack(): fillRect(-4000,-4000,8000,8000) background, kerb dashes at [60,60] scale, remove environment colour blocks and watermark, new META stripe at x=520
+- [x] 02b-02-PLAN.md — Rewrite drawTrack(): fillRect(-4000,-4000,8000,8000) background, kerb dashes at [60,60] scale, remove environment colour blocks and watermark, new META stripe at x=520
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -129,7 +129,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
 | 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
-| 2b. Monaco Overhaul | 1/4 | In Progress | - |
+| 2b. Monaco Overhaul | 2/4 | In Progress | - |
 | 3. AI, Audio & Polish | 0/? | Not started | - |
 
 ---

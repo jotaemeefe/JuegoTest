@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 1
+current_plan: 2
 status: in_progress
-stopped_at: Completed 02b-01-PLAN.md — world-space geometry constants (ROAD_SPINE 52pt, physics 3.5x, AI_WAYPOINTS 43pt, inTunnel inline)
-last_updated: "2026-06-29T20:00:00.000Z"
+stopped_at: Completed 02b-02-PLAN.md — drawTrack() rewritten for 1600x2000 world space (large fillRect, scaled kerbs [60,60], old blocks removed, new META stripe at 520,1820)
+last_updated: "2026-06-29T20:18:00.000Z"
 progress:
   total_phases: 18
   completed_phases: 2
   total_plans: 12
-  completed_plans: 10
-  percent: 15
+  completed_plans: 11
+  percent: 16
 ---
 
 # Project State
@@ -19,8 +19,8 @@ progress:
 ## Current Status
 
 **Active phase:** Phase 2-B — Monaco Gameplay Overhaul (IN PROGRESS)
-**Current plan:** 1 of 5 (02b-01 complete)
-**Last action:** Completed 02b-01 — all world-space geometry constants replaced: ROAD_SPINE 52pt (1600x2000), physics 3.5x scale, AI_WAYPOINTS 43pt, inTunnel inline setter, drawTunnelRoof removed.
+**Current plan:** 2 of 5 (02b-02 complete)
+**Last action:** Completed 02b-02 — drawTrack() rewritten for 1600x2000 world space: large fillRect(-4000,-4000,8000,8000), kerbs [60,60], old environment blocks removed, META stripe at project(520,1820).
 **Resumed:** 2026-06-29
 
 ## Project Reference
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Performance Metrics
 
 - Requirements total: 35
-- Requirements completed: 20 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, TRACK-02, TRACK-03, CARS-02, CARS-03, CARS-04)
+- Requirements completed: 21 (BUG-01, BUG-02, BUG-03, BUG-04, CTRL-01, CTRL-02, CTRL-03, GRID-01, GRID-02, UI-01, UI-02, UI-03, UI-04, UI-05, UI-06, TRACK-01, TRACK-02, TRACK-03, CARS-02, CARS-03, CARS-04)
 - Phases completed: 2 / 3
 
 | Plan | Phase | Duration | Tasks | Files |
@@ -55,6 +55,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 02-03 | 02-monaco-4-cars | 12 min | 2 | 1 |
 | 02-04 | 02-monaco-4-cars | 18 min | 2 | 1 |
 | 02b-01 | 02b-monaco-overhaul | 12 min | 2 | 1 |
+| 02b-02 | 02b-monaco-overhaul | 8 min | 1 | 1 |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - Physics constants 3.5x: MAX_SPD_ON=650, MAX_SPD_OFF=250, AUTO_ACCEL=550, BRAKE_FORCE=1200, CAR_RADIUS=18, TURN_RATE=3.8, ROAD_HALF_W=80 — COMPLETED in 02b-01 (1431c6f)
 - AI_WAYPOINTS 43pt in new world space; AI_WP_REACH=80 — COMPLETED in 02b-01 (c350cb2)
 - drawTunnelRoof() removed; car.inTunnel setter extracted as inline forEach in racing phase — COMPLETED in 02b-01 (c350cb2)
+- drawTrack() fillRect(-4000,-4000,8000,8000): covers full rotated world space — camera-transform prerequisite — COMPLETED in 02b-02 (4bf8087)
+- Kerb dash [60,60] (3.5x scale from old [18,18]); environment blocks removed (harbour, casino, hairpin, pit); META stripe at project(520,1820) — COMPLETED in 02b-02 (4bf8087)
 - PERSONALITIES const: aggressive (speedMult 1.05, brakeMult 0.8, damageMult 1.5), defensive (speedMult 0.92, brakeMult 1.2, damageMult 0.8), consistent (all 1.0) — COMPLETED in 02-04 (4a4d71d)
 - Personality assignment: cars[1]=aggressive, cars[2]=defensive, cars[3]=consistent every race (fixed mapping) — COMPLETED in 02-04 (4a4d71d)
 - PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]] loop replaces single player-vs-cars[1] collision — COMPLETED in 02-04 (4a4d71d)
@@ -127,12 +130,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-29
-**Stopped at:** Completed 02b-01-PLAN.md — world-space geometry constants replaced. Next: 02b-02 (drawTrack simplification + minimap).
-**Resume file:** None — continue Phase 2-B with 02b-02
+**Stopped at:** Completed 02b-02-PLAN.md — drawTrack() rewritten for new world space. Next: 02b-03 (camera transform in loop()).
+**Resume file:** None — continue Phase 2-B with 02b-03
 
 ## Resume Instructions
 
-02b-01 complete. All geometry constants in new 1600x2000 world space. Next: execute 02b-02 — simplify drawTrack() (remove old color blocks, big fillRect), add drawMinimap() function.
+02b-02 complete. drawTrack() is camera-transform-ready with large fillRect and scaled kerbs. Next: execute 02b-03 — add camera transform (ctx.save/translate/rotate/translate) in loop() so the view follows and rotates with the player car.
 
 ---
 *State initialized: 2026-06-26*
