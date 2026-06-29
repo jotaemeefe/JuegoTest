@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 2
+current_plan: 3
 status: in_progress
-stopped_at: Completed 02b-02-PLAN.md — drawTrack() rewritten for 1600x2000 world space (large fillRect, scaled kerbs [60,60], old blocks removed, new META stripe at 520,1820)
-last_updated: "2026-06-29T20:18:00.000Z"
+stopped_at: Completed 02b-03-PLAN.md — rotating follow camera transform in loop(), drawMinimap() added, drawOffTrackVignette() updated to screen-space center
+last_updated: "2026-06-29T20:40:00.000Z"
 progress:
   total_phases: 18
   completed_phases: 2
@@ -19,8 +19,8 @@ progress:
 ## Current Status
 
 **Active phase:** Phase 2-B — Monaco Gameplay Overhaul (IN PROGRESS)
-**Current plan:** 2 of 5 (02b-02 complete)
-**Last action:** Completed 02b-02 — drawTrack() rewritten for 1600x2000 world space: large fillRect(-4000,-4000,8000,8000), kerbs [60,60], old environment blocks removed, META stripe at project(520,1820).
+**Current plan:** 3 of 5 (02b-03 complete)
+**Last action:** Completed 02b-03 — rotating follow camera in loop(): ctx.save/translate(240,380)/rotate(-angle-PI/2)/translate(-car.x,-car.y) in all three phases. drawMinimap() added (100x120px top-right). drawOffTrackVignette() updated to screen-space center (240,380). All screen-space overlays moved after ctx.restore().
 **Resumed:** 2026-06-29
 
 ## Project Reference
@@ -56,6 +56,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 02-04 | 02-monaco-4-cars | 18 min | 2 | 1 |
 | 02b-01 | 02b-monaco-overhaul | 12 min | 2 | 1 |
 | 02b-02 | 02b-monaco-overhaul | 8 min | 1 | 1 |
+| 02b-03 | 02b-monaco-overhaul | 22 min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -79,6 +80,11 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - drawTunnelRoof() removed; car.inTunnel setter extracted as inline forEach in racing phase — COMPLETED in 02b-01 (c350cb2)
 - drawTrack() fillRect(-4000,-4000,8000,8000): covers full rotated world space — camera-transform prerequisite — COMPLETED in 02b-02 (4bf8087)
 - Kerb dash [60,60] (3.5x scale from old [18,18]); environment blocks removed (harbour, casino, hairpin, pit); META stripe at project(520,1820) — COMPLETED in 02b-02 (4bf8087)
+- Rotating follow camera: ctx.save/translate(240,380)/rotate(-car.angle-PI/2)/translate(-car.x,-car.y) in all 3 loop() phases — COMPLETED in 02b-03 (59508ed)
+- Camera focal point y=380 (60% from top per D-02): more forward view than rear view — COMPLETED in 02b-03 (59508ed)
+- drawMinimap() 100x120px top-right, ROAD_SPINE outline + car dots, bounding-box auto-scale — COMPLETED in 02b-03 (73d5dac)
+- drawOffTrackVignette() updated to screen-space center (240,380) — aligned with camera focal point D-02 — COMPLETED in 02b-03 (73d5dac)
+- All screen-space overlays (drawCountdown, drawWin, cpFlash, drawFloatingTexts, drawDamageBar, drawOffTrackVignette) moved after ctx.restore() — COMPLETED in 02b-03 (59508ed)
 - PERSONALITIES const: aggressive (speedMult 1.05, brakeMult 0.8, damageMult 1.5), defensive (speedMult 0.92, brakeMult 1.2, damageMult 0.8), consistent (all 1.0) — COMPLETED in 02-04 (4a4d71d)
 - Personality assignment: cars[1]=aggressive, cars[2]=defensive, cars[3]=consistent every race (fixed mapping) — COMPLETED in 02-04 (4a4d71d)
 - PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]] loop replaces single player-vs-cars[1] collision — COMPLETED in 02-04 (4a4d71d)
@@ -130,12 +136,12 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-06-29
-**Stopped at:** Completed 02b-02-PLAN.md — drawTrack() rewritten for new world space. Next: 02b-03 (camera transform in loop()).
-**Resume file:** None — continue Phase 2-B with 02b-03
+**Stopped at:** Completed 02b-03-PLAN.md — rotating follow camera active. Player car always points up on screen.
+**Resume file:** None — continue Phase 2-B with 02b-04
 
 ## Resume Instructions
 
-02b-02 complete. drawTrack() is camera-transform-ready with large fillRect and scaled kerbs. Next: execute 02b-03 — add camera transform (ctx.save/translate/rotate/translate) in loop() so the view follows and rotates with the player car.
+02b-03 complete. Rotating follow camera is active in all three loop() phases. drawMinimap() renders ROAD_SPINE outline and car dots. drawOffTrackVignette() uses screen-space center. Next: execute 02b-04 — remaining Phase 2-B plans (physics tuning verification, AI waypoint validation, etc.).
 
 ---
 *State initialized: 2026-06-26*
