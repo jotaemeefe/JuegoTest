@@ -18,10 +18,10 @@ progress:
 
 ## Current Status
 
-**Active phase:** Phase 2 — Monaco + 4 Cars (COMPLETE)
-**Current plan:** 5 (next phase)
-**Last action:** Completed 02-04-PLAN.md — AI personalities (CARS-02), all 6 collision pairs (CARS-03), HUD P1-P4 (CARS-04). Phase 2 fully complete.
-**Resumed:** 2026-06-27
+**Active phase:** Phase 2-B — Monaco Gameplay Overhaul (PLANNING)
+**Current plan:** 0 (context gathered, ready for plan-phase)
+**Last action:** Gathered context for Phase 2-B — cámara rotatoria, Monaco rediseñado desde cero a escala 3.5x, física re-tuneada. Usuario insatisfecho con jugabilidad de Phase 2.
+**Resumed:** 2026-06-29
 
 ## Project Reference
 
