@@ -2,12 +2,12 @@
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TOTAL_LAPS    = 3;
-const MAX_SPD_ON    = 650;   // px/s on track (3.5x scale — D-13)
-const MAX_SPD_OFF   = 250;   // px/s off track (3.5x scale — D-13)
-const AUTO_ACCEL    = 550;   // px/s² constant push (3.5x scale — D-13)
+const MAX_SPD_ON    = 450;   // px/s on track — reduced for controllable cornering
+const MAX_SPD_OFF   = 175;   // px/s off track
+const AUTO_ACCEL    = 400;   // px/s² constant push — slower acceleration, more reaction time
 const FRICTION_K    = 1.1;   // speed lost per second (proportional, unchanged — D-15)
-const BRAKE_FORCE   = 1200;  // px/s² when braking (3.5x scale — D-13)
-const TURN_RATE     = 3.8;   // rad/s — independent tuning for 3.5x Monaco (D-14)
+const BRAKE_FORCE   = 900;   // px/s² when braking
+const TURN_RATE     = 4.5;   // rad/s — increased for responsive steering
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 18;    // px, for car-car collision detection (D-13)
 
@@ -28,7 +28,7 @@ const ROAD_SPINE = [
   // ── Casino Square / Mirabeau entry (plateau, right-bearing arc) ──────────
   [900, 1030], [870, 960], [820, 900],
   // ── Mirabeau (descending left, entering hairpin section) ─────────────────
-  [750, 850], [670, 800], [590, 760],
+  [750, 850], [650, 815], [590, 765],
   // ── Grand Hotel Hairpin approach (from east) ─────────────────────────────
   [520, 730], [450, 700], [380, 665],
   // ── Loews U-turn (spine radius ≈ 100px, ROAD_HALF_W=80) ──────────────────
@@ -46,8 +46,12 @@ const ROAD_SPINE = [
   [1165, 1065], [1185, 1175], [1190, 1290], [1165, 1410], [1120, 1470],
   // ── La Rascasse (tight right hairpin) ────────────────────────────────────
   [1055, 1495], [970, 1505], [900, 1480],
-  // ── Antony Noghès (final right turn back to straight) ────────────────────
-  [855, 1555], [770, 1650], [660, 1755], [520, 1800], [350, 1815],
+  // ── Antony Noghès (sweeps northwest, clear of main straight) ─────────────
+  [855, 1555], [790, 1565], [700, 1572], [580, 1582],
+  // ── Return straight (y≈1590 — 230px north of main straight at y=1820) ────
+  [420, 1590], [260, 1592],
+  // ── Northwest approach curving down to META ───────────────────────────────
+  [200, 1655], [200, 1755],
   // ── Close loop ───────────────────────────────────────────────────────────
   [200, 1820],
 ];
@@ -191,10 +195,13 @@ const AI_WAYPOINTS = [
   [1050, 1490],  // 36  Rascasse approach
   [960,  1500],  // 37  Rascasse apex
   [890,  1475],  // 38  Rascasse exit
-  [830,  1555],  // 39  Antony Noghès upper
-  [740,  1660],  // 40  Antony Noghès lower
-  [620,  1770],  // 41  final straight entry
-  [420,  1810],  // 42  final straight mid
+  [820,  1558],  // 39  Antony Noghès entry
+  [700,  1572],  // 40  Antony Noghès mid
+  [560,  1584],  // 41  return straight entry
+  [380,  1590],  // 42  return straight
+  [240,  1592],  // 43  return straight west
+  [200,  1680],  // 44  northwest approach
+  [200,  1790],  // 45  pre-Meta approach
 ];
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -1381,41 +1388,10 @@ function onDisconnect() {
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
 function resetGame() {
   if (gameMode === 'solo') {
-    // Solo: 4 cars — player + 3 AI opponents
-    // Select 3 AI rivals bracketing the selected rival's skill
-    const pivotIdx = selectedRivalIdx;
-    const candidateIndices = [
-      pivotIdx,
-      Math.max(0, pivotIdx - 1),
-      Math.min(RIVALS.length - 1, pivotIdx + 1),
-      Math.min(RIVALS.length - 1, pivotIdx + 2),
-    ];
-    // Deduplicate, exclude duplicate of same rival (keep selected + 2 different neighbors)
-    const seen = new Set();
-    const aiIndices = [];
-    // Always include the selected rival first, then unique neighbors
-    for (const idx of candidateIndices) {
-      if (!seen.has(idx) && aiIndices.length < 3) {
-        seen.add(idx);
-        aiIndices.push(idx);
-      }
-    }
-    // If we still don't have 3 (e.g. at edge of array), fill from RIVALS
-    for (let i = 0; aiIndices.length < 3 && i < RIVALS.length; i++) {
-      if (!seen.has(i)) { seen.add(i); aiIndices.push(i); }
-    }
-
-    // Assign one personality per AI car — one of each type per race (CARS-02)
-    const personalityOrder = ['aggressive', 'defensive', 'consistent'];
-
+    // Solo: 2 cars — player vs the one selected rival
     cars = [
-      // cars[0] — player (Colapinto)
-      Object.assign(makeCar(0), { isPlayer: true, damage: 0, wpIdx: 0, rivalData: null, personality: null }),
-      // cars[1–3] — AI opponents. All start pointing EAST (positive x direction).
-      // wpIdx 1 = WP (220,550) east of P2 start; wpIdx 0 = WP (130,550) east of P3/P4 start.
-      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[aiIndices[0]], personality: PERSONALITIES[personalityOrder[0]] }),
-      Object.assign(makeCar(2), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[1]], personality: PERSONALITIES[personalityOrder[1]] }),
-      Object.assign(makeCar(3), { isPlayer: false, damage: 0, wpIdx: 0, rivalData: RIVALS[aiIndices[2]], personality: PERSONALITIES[personalityOrder[2]] }),
+      Object.assign(makeCar(0), { isPlayer: true,  damage: 0, wpIdx: 0, rivalData: null,                          personality: null }),
+      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[selectedRivalIdx], personality: PERSONALITIES.consistent }),
     ];
   } else {
     // Multi: 2 cars — local player + remote peer
