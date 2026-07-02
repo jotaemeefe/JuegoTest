@@ -62,12 +62,13 @@ const CPS = [
 ];
 
 // Monaco starting grid [P1, P2, P3, P4] — main straight y≈1820, 2×2 staggered, pointing east (a:0)
-// Separation check: P1↔P2 = sqrt((580-520)²+(1826-1814)²) ≈ 61px > CAR_RADIUS*2=36px ✓
+// All positions WEST of x=520 (META stripe) so cars start before the finish line
+// Separation check: P1↔P2 = sqrt((440-380)²+(1826-1814)²) ≈ 61px > CAR_RADIUS*2=36px ✓
 const START = [
-  { x: 580, y: 1826, a: 0 },  // P1 — player  (right col, front)
-  { x: 520, y: 1814, a: 0 },  // P2 — AI car1  (left col, front)
-  { x: 460, y: 1826, a: 0 },  // P3 — AI car2  (right col, rear)
-  { x: 400, y: 1814, a: 0 },  // P4 — AI car3  (left col, rear)
+  { x: 440, y: 1826, a: 0 },  // P1 — player  (right col, front)
+  { x: 380, y: 1814, a: 0 },  // P2 — AI car1  (left col, front)
+  { x: 320, y: 1826, a: 0 },  // P3 — AI car2  (right col, rear)
+  { x: 260, y: 1814, a: 0 },  // P4 — AI car3  (left col, rear)
 ];
 
 // Visual style for Colapinto — Alpine BWT
@@ -483,13 +484,34 @@ function drawTrack() {
   ctx.strokeStyle = '#2d3748';
   drawSpinePath(); ctx.stroke();
 
-  // Racing line dashes (keep for visual polish — thin line, scale matters less)
+  // Center dashed line — yellow, follows spine to show lap direction
   ctx.save();
   ctx.setLineDash([14, 10]);
-  ctx.strokeStyle = 'rgba(251,191,36,0.22)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(251,191,36,0.40)';
+  ctx.lineWidth = 3;
   drawSpinePath(); ctx.stroke();
   ctx.setLineDash([]);
+  ctx.restore();
+
+  // Direction arrows — semi-transparent triangles every 5 spine points show lap direction
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  for (let i = 2; i < ROAD_SPINE.length - 1; i += 5) {
+    const [x0, y0] = ROAD_SPINE[i - 1];
+    const [x1, y1] = ROAD_SPINE[i];
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 5) continue;
+    const nx = dx / len, ny = dy / len;
+    const px = -ny, py = nx;
+    const mx = (x0 + x1) * 0.5, my = (y0 + y1) * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(mx + nx * 20, my + ny * 20);
+    ctx.lineTo(mx - nx * 14 + px * 14, my - ny * 14 + py * 14);
+    ctx.lineTo(mx - nx * 14 - px * 14, my - ny * 14 - py * 14);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
 
   // Start/finish chequered stripe — vertical at x=520 (CP0 position), new world space
@@ -1142,7 +1164,6 @@ function loop(ts) {
     // === WORLD-SPACE RENDER (racing) ===
     ctx.save();
     ctx.translate(240, 380);
-    ctx.rotate(-cars[0].angle - Math.PI / 2);
     ctx.translate(-cars[0].x, -cars[0].y);
 
     drawTrack();
@@ -1179,7 +1200,6 @@ function loop(ts) {
     // === WORLD-SPACE RENDER (done) ===
     ctx.save();
     ctx.translate(240, 380);
-    ctx.rotate(-cars[0].angle - Math.PI / 2);
     ctx.translate(-cars[0].x, -cars[0].y);
 
     drawTrack();
@@ -1203,7 +1223,6 @@ function loop(ts) {
   if (phase === 'countdown') {
     ctx.save();
     ctx.translate(240, 380);
-    ctx.rotate(-cars[0].angle - Math.PI / 2);
     ctx.translate(-cars[0].x, -cars[0].y);
 
     drawTrack();
