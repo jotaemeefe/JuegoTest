@@ -275,6 +275,7 @@ let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 let floatingTexts      = [];  // [{text,color,x,y,alpha,vy,size}]
 let cpFlash            = 0;   // seconds remaining of checkpoint flash
 let damageWarningShown = 0;   // last damage% when warning was shown
+let wrongWayTimer      = 0;   // seconds player has been going wrong-way
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -652,6 +653,25 @@ function isOnTrack(x, y) {
   return false;
 }
 
+// Returns nearest point on ROAD_SPINE to (x,y), plus normalized track direction at that segment.
+// Used for Monaco barrier walls and wrong-way detection.
+function nearestSpinePoint(x, y) {
+  let bestDist2 = Infinity, bestX = x, bestY = y, bestSegIdx = 0;
+  for (let i = 0; i < ROAD_SPINE.length - 1; i++) {
+    const [ax, ay] = ROAD_SPINE[i], [bx, by] = ROAD_SPINE[i + 1];
+    const dx = bx - ax, dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) continue;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lenSq));
+    const cx = ax + t * dx, cy = ay + t * dy;
+    const d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+    if (d2 < bestDist2) { bestDist2 = d2; bestX = cx; bestY = cy; bestSegIdx = i; }
+  }
+  const [ax, ay] = ROAD_SPINE[bestSegIdx], [bx, by] = ROAD_SPINE[bestSegIdx + 1];
+  const sdx = bx - ax, sdy = by - ay, slen = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
+  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist2), dirX: sdx / slen, dirY: sdy / slen };
+}
+
 function resolveCarCollision(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const dist2 = dx * dx + dy * dy;
@@ -659,15 +679,15 @@ function resolveCarCollision(a, b) {
   if (dist2 >= minDist * minDist || dist2 === 0) return false;
   const dist = Math.sqrt(dist2);
   const nx = dx / dist, ny = dy / dist;
-  const overlap = (minDist - dist) * 0.55;
+  const overlap = (minDist - dist) * 1.02; // full separation + 2% buffer prevents re-sticking
   a.x -= nx * overlap; a.y -= ny * overlap;
   b.x += nx * overlap; b.y += ny * overlap;
   const aVn = (Math.cos(a.angle) * nx + Math.sin(a.angle) * ny) * a.speed;
   const bVn = (Math.cos(b.angle) * nx + Math.sin(b.angle) * ny) * b.speed;
   if (bVn - aVn >= 0) return true;
   const relV = aVn - bVn;
-  a.speed = Math.max(0, a.speed - relV * 0.35);
-  b.speed = Math.max(0, b.speed - relV * 0.35);
+  a.speed = Math.max(0, a.speed - relV * 0.65); // elastic restitution — cars bounce apart
+  b.speed = Math.max(0, b.speed - relV * 0.65);
   return true;
 }
 
@@ -731,9 +751,19 @@ function updateCar(car, dt, damage = 0) {
   if (car.isPlayer && keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
   if (car.isPlayer && keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
-  // Move
-  car.x += Math.cos(car.angle) * car.speed * dt;
-  car.y += Math.sin(car.angle) * car.speed * dt;
+  // Move — Monaco barrier walls: snap to track edge on boundary contact
+  const nextX = car.x + Math.cos(car.angle) * car.speed * dt;
+  const nextY = car.y + Math.sin(car.angle) * car.speed * dt;
+  car.x = nextX; car.y = nextY;
+  if (!isOnTrack(car.x, car.y)) {
+    const near = nearestSpinePoint(car.x, car.y);
+    if (near.dist > 0) {
+      const f = (ROAD_HALF_W * 0.88) / near.dist;
+      car.x = near.x + (car.x - near.x) * f;
+      car.y = near.y + (car.y - near.y) * f;
+    }
+    car.speed *= 0.22; // wall impact — significant speed loss
+  }
 }
 
 // ── AI driver ─────────────────────────────────────────────────────────────────
@@ -1100,6 +1130,18 @@ function loop(ts) {
     // Compute onTrk before render block — used in screen-space section after ctx.restore()
     const onTrk = isOnTrack(cars[0].x, cars[0].y);
 
+    // Wrong-way detection: compare player heading to nearest spine direction
+    if (cars[0].speed > 80) {
+      const near = nearestSpinePoint(cars[0].x, cars[0].y);
+      const dot = Math.cos(cars[0].angle) * near.dirX + Math.sin(cars[0].angle) * near.dirY;
+      wrongWayTimer = dot < -0.5
+        ? Math.min(wrongWayTimer + dt, 3)
+        : Math.max(0, wrongWayTimer - dt * 2);
+      if (wrongWayTimer > 0.8) cars[0].speed = Math.min(cars[0].speed, 100);
+    } else {
+      wrongWayTimer = Math.max(0, wrongWayTimer - dt);
+    }
+
     // Off-track damage + shake (player car only)
     if (!onTrk) {
       cars[0].damage = Math.min(100, cars[0].damage + 1.2 * dt);
@@ -1181,7 +1223,7 @@ function loop(ts) {
     // === SCREEN-SPACE RENDER (racing) ===
     drawMinimap();
 
-    if (!onTrk) drawOffTrackVignette(0.55);
+    if (!onTrk) drawOffTrackVignette(0.28); // reduced: walls keep car near track, vignette is brief warning
 
     // Checkpoint flash (green border sweep)
     if (cpFlash > 0) {
@@ -1194,6 +1236,16 @@ function loop(ts) {
 
     drawFloatingTexts(dt);
     drawDamageBar(cars[0].damage);
+
+    // Wrong-way overlay
+    if (wrongWayTimer > 0.8) {
+      ctx.save();
+      ctx.fillStyle = `rgba(239,68,68,${Math.min(0.9, (wrongWayTimer - 0.8) * 1.5)})`;
+      ctx.font = 'bold 16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚠  VUELTA INCORRECTA  ⚠', 240, 78);
+      ctx.restore();
+    }
 
   } else if (phase === 'done') {
 
@@ -1273,8 +1325,8 @@ function onMsg(data) {
 
   if (data.type === 'pos') {
     const { x, y, angle, speed, lap, cp } = data;
-    if (!isFinite(x) || x < -500 || x > 1000) return;
-    if (!isFinite(y) || y < -500 || y > 1200) return;
+    if (!isFinite(x) || x < -500 || x > 1700) return; // world is 1600 wide; was 1000 (too tight)
+    if (!isFinite(y) || y < -500 || y > 2100) return; // world is 2000 tall; was 1200 (rejected main straight)
     if (!isFinite(angle)) return;
     // Normalize angle to [-PI, PI] to reject garbage large values from malicious peers
     const normalizedAngle = ((angle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
@@ -1387,6 +1439,7 @@ function resetGame() {
   phase            = 'countdown';
   lapStartTime     = 0;
   lastLapMs        = 0;
+  wrongWayTimer    = 0;
   sessionRecord    = false;
   recordFlashUntil = 0;
   wasOnTrack       = true;
