@@ -1,6 +1,7 @@
 :root {
   --blue: #003087;
   --sky: #00a0e9;
+  --pink: #f569b7;   /* Alpine BWT accent */
   --white: #f8fafc;
   --dark: #050a1a;
   --mid: #0f1e3d;
@@ -43,13 +44,21 @@ body {
 .flag { font-size: 3rem; margin-bottom: 6px; }
 
 h1 {
-  font-size: 2.6rem;
+  font-size: 2.7rem;
   font-weight: 900;
   letter-spacing: 4px;
-  line-height: 1.1;
+  line-height: 1.05;
   text-transform: uppercase;
+  text-shadow: 0 2px 18px rgba(0,160,233,0.35);
 }
-h1 span { color: var(--sky); font-size: 2rem; }
+h1 span {
+  font-size: 2rem;
+  background: linear-gradient(90deg, var(--sky) 0%, var(--pink) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--pink); /* fallback where background-clip unsupported */
+}
 
 .tagline {
   margin-top: 10px;
@@ -82,11 +91,12 @@ h1 span { color: var(--sky); font-size: 2rem; }
 .btn:active { transform: scale(0.96); }
 
 .btn-primary {
-  background: var(--blue);
+  background: linear-gradient(120deg, var(--blue) 0%, #6a1f5a 100%);
   color: var(--white);
   border: 2px solid var(--sky);
+  box-shadow: 0 0 14px rgba(245,105,183,0.18);
 }
-.btn-primary:hover { box-shadow: 0 0 22px rgba(0,160,233,0.5); }
+.btn-primary:hover { box-shadow: 0 0 24px rgba(245,105,183,0.5); border-color: var(--pink); }
 
 .btn-secondary {
   background: transparent;
@@ -131,11 +141,20 @@ h1 span { color: var(--sky); font-size: 2rem; }
 
 /* ── Create screen ────────────────────────────────────────── */
 h2 {
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 3px;
   text-align: center;
   text-transform: uppercase;
+}
+h2::after {
+  content: '';
+  display: block;
+  width: 46px;
+  height: 3px;
+  margin: 7px auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--sky), var(--pink));
 }
 
 .sub { color: #94a3b8; font-size: 0.88rem; text-align: center; }
@@ -243,6 +262,35 @@ canvas {
   touch-action: none;
 }
 
+/* ── DRS button (DRS-01) — floats over the canvas, only while relevant ─────── */
+.drs-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  color: #04141a;
+  background: #00e0ff;
+  border: 2px solid #7ff2ff;
+  touch-action: none;
+  z-index: 5;
+}
+.drs-btn[hidden] { display: none; }
+.drs-btn.available { animation: drsPulse 0.7s ease-in-out infinite; }
+.drs-btn.active {
+  background: #00e0ff;
+  color: #04141a;
+  box-shadow: 0 0 22px rgba(0,224,255,0.85);
+}
+@keyframes drsPulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 6px rgba(0,224,255,0.4); }
+  50%      { transform: scale(1.06); box-shadow: 0 0 20px rgba(0,224,255,0.9); }
+}
+
 /* ── Touch controls ───────────────────────────────────────── */
 .touch-controls {
   display: flex;
@@ -290,16 +338,24 @@ canvas {
 /* ── Results screen ───────────────────────────────────────── */
 .result-banner {
   text-align: center;
-  padding: 22px;
-  background: rgba(0,48,135,0.25);
+  padding: 26px 22px;
+  background:
+    radial-gradient(circle at 30% 0%, rgba(245,105,183,0.18) 0%, transparent 60%),
+    linear-gradient(160deg, rgba(0,48,135,0.35) 0%, rgba(10,10,30,0.5) 100%);
   border: 2px solid var(--sky);
-  border-radius: 16px;
+  border-radius: 18px;
   width: 100%;
   max-width: 340px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 0 30px rgba(0,160,233,0.08);
 }
 
-.result-icon { font-size: 3rem; margin-bottom: 8px; }
-#result-title { font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; }
+.result-icon { font-size: 3.2rem; margin-bottom: 8px; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.5)); }
+#result-title {
+  font-size: 1.5rem; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+  background: linear-gradient(90deg, var(--sky), var(--pink));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  color: var(--pink);
+}
 #result-sub { color: #94a3b8; font-size: 0.88rem; margin-top: 6px; }
 .result-lap { color: #fbbf24; font-size: 0.82rem; font-weight: 700; margin-top: 8px; letter-spacing: 1px; }
 
@@ -339,7 +395,7 @@ canvas {
   user-select: none;
 }
 .rival-card.show    { opacity: 1; transform: translateY(0); }
-.rival-card:hover   { border-color: var(--sky); background: rgba(0, 80, 150, 0.25); }
+.rival-card:hover   { border-color: var(--pink); background: rgba(0, 80, 150, 0.25); box-shadow: 0 0 14px rgba(245,105,183,0.25); }
 .rival-card:active  { transform: scale(0.97); }
 
 .rival-band {

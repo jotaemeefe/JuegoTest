@@ -13,7 +13,7 @@
 - [x] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
 - [x] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
 - [x] **Phase 2c: Gameplay Fix** — Post-2b course correction driven by automated visual testing: Monaco barrier walls, collision-sticking fix, non-crossing circuit redesign (57-pt spine), physics slowed for control (MAX_SPD 650→450, TURN_RATE 3.8→4.5), wrong-way detector, and **VS CPU reduced from 4 cars to 1v1** (player + one selected rival). AI braking for corners landed here early.
-- [ ] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects, and UI redesign.
+- [x] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost, lap-time feedback, and an Alpine blue+pink UI redesign. Adapted to the 1v1 reality: one rival with a skill-derived personality.
 
 ---
 
@@ -132,7 +132,7 @@ Plans:
 | 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
 | 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
 | 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
-| 3. AI, Audio & Polish | 0/? | In Progress | - |
+| 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
 
 ---
 

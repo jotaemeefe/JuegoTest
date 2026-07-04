@@ -4,23 +4,23 @@ milestone: v2.0
 milestone_name: milestone
 current_plan: 1
 status: in_progress
-stopped_at: Phases 1, 2, 2b and 2c complete. Docs reconciled with code (2c pivot — non-crossing circuit, 1v1 VS CPU, physics slowed). Starting Phase 3 (AI, Audio & Polish).
-last_updated: "2026-07-04T00:00:00.000Z"
+stopped_at: Phase 3 (AI, Audio & Polish) implemented, verified in headless Chromium, and shipped. v2.0 milestone content complete.
+last_updated: "2026-07-04T12:00:00.000Z"
 progress:
   total_phases: 18
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
-  percent: 22
+  completed_phases: 5
+  total_plans: 14
+  completed_plans: 14
+  percent: 28
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 3 — AI, Audio & Polish (STARTING)
-**Current plan:** planning
-**Last action:** Reconciled planning docs with code after the Phase 2c gameplay-fix pivot (commits f94e7a5, 391a1aa): non-crossing 57-pt Monaco spine, VS CPU reduced to 1v1 (2 cars), physics slowed (MAX_SPD_ON 450, TURN_RATE 4.5, BRAKE_FORCE 900), Monaco walls + wrong-way detector, AI corner-braking already present.
+**Active phase:** Phase 3 — AI, Audio & Polish (COMPLETE)
+**Current plan:** 03-PLAN.md complete (see 03-SUMMARY.md)
+**Last action:** Implemented and shipped Phase 3 — AI braking/personalities/line variation, background music + tunnel muffle + overtake/DRS SFX, VFX (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost system, lap-time delta feedback, and the Alpine blue+pink UI-07 redesign. Verified in headless Chromium with zero JS runtime errors.
 **Resumed:** 2026-07-04
 
 ## Project Reference
@@ -38,7 +38,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 2 | Monaco + 4 Cars | Races take place on Monaco circuit with 4 cars on track simultaneously — player plus 3 AI opponents with distinct personalities | COMPLETE |
 | 2b | Monaco Overhaul | Rotating follow camera (car points up), Monaco at 3.5x in 1600x2000 world space, minimap, physics re-tuned | COMPLETE |
 | 2c | Gameplay Fix | Non-crossing circuit redesign, Monaco walls, collision fix, wrong-way detector, physics slowed for control, VS CPU → 1v1 | COMPLETE |
-| 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage | ► IN PROGRESS |
+| 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage, DRS adds tactics | COMPLETE |
 
 ## Performance Metrics
 
@@ -151,12 +151,16 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 ## Session Continuity
 
 **Last session:** 2026-07-04
-**Stopped at:** Docs reconciled with code after the Phase 2c pivot. Phases 1/2/2b/2c all COMPLETE. Beginning Phase 3.
-**Resume file:** None — execute Phase 3 (AI, Audio & Polish)
+**Stopped at:** Phase 3 shipped. All v2.0 content phases (1, 2, 2b, 2c, 3) COMPLETE.
+**Resume file:** None — v2.0 milestone content is done.
 
 ## Resume Instructions
 
-Phases 1, 2, 2b and 2c are complete and the planning docs now match the code. The game is a 1v1 (2-car) race on a non-crossing 57-pt Monaco spine in 1600x2000 world space with a rotating follow camera, Monaco walls, wrong-way detection, and AI that already brakes for corners. Next: Phase 3 — AI, Audio & Polish (AI-01/02/03, AUDIO-01/02/03, VFX-01–05, DRS-01, UI-07). Note AI-01 (real braking) is partially done in current code; verify and extend rather than re-implement.
+Phases 1, 2, 2b, 2c and 3 are all complete. The v2.0 game is a 1v1 Monaco race with a rotating
+follow camera, Monaco walls, AI that brakes for corners and has a skill-derived personality,
+background music, damage/overtake/DRS VFX+SFX, a DRS boost, lap-time delta feedback, and an
+Alpine blue+pink UI. Verified in headless Chromium with zero JS runtime errors. Next candidates:
+a human UAT pass on desktop+mobile, or begin Release 3 (Championship Mode) per the ROADMAP.
 
 ---
 *State initialized: 2026-06-26*

@@ -11,6 +11,11 @@ const TURN_RATE     = 4.5;   // rad/s — increased for responsive steering
 const NET_MS        = 50;    // position broadcast interval
 const CAR_RADIUS    = 18;    // px, for car-car collision detection (D-13)
 
+// DRS (Phase 3 — DRS-01): tactical speed boost when close behind the car ahead
+const DRS_RANGE     = 60;    // px proximity to the car ahead that unlocks DRS
+const DRS_DURATION  = 3000;  // ms the boost lasts once activated
+const DRS_BOOST     = 1.28;  // top-speed multiplier while DRS is active
+
 // Circuit — clockwise, 57-point non-crossing polyline, world-space 1600×2000
 // Designed for clean 2D top-down: northbound leg (Beau Rivage) at x≈1095-1200,
 // southbound leg (Swimming Pool) at x≈1418-1448 — 220+px separation guaranteed.
@@ -149,6 +154,14 @@ function rivalDiff(skill) {
   return                     { label: 'MEDIO',    color: '#22c55e' };
 }
 
+// AI-03: give the single rival a personality drawn from its skill tier so that
+// stronger rivals attack (tighter line, higher speed) and weaker ones defend (wider, slower).
+function personalityFor(skill) {
+  if (skill >= 0.90) return PERSONALITIES.aggressive;
+  if (skill <= 0.82) return PERSONALITIES.defensive;
+  return PERSONALITIES.consistent;
+}
+
 // AI navigation waypoints — 55 points CW, matching new non-crossing circuit
 // Dense section: Loews hairpin (WP 18-26) for tight corner precision
 // Loop: car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length
@@ -257,6 +270,11 @@ function makeCar(idx) {
     damage: 0,         // 0–100 accumulated damage (per-car)
     wpIdx: 0,          // AI waypoint index (per-car, independent navigation)
     rivalData: null,   // RIVALS entry for style/skill (null for player)
+    drsUntil: 0,       // performance.now() until which DRS boost is active (DRS-01)
+    drsLap: -1,        // lap index on which DRS was last used (one use per lap)
+    flashUntil: 0,     // performance.now() until which the car flashes white (VFX-03)
+    lineBias: 0,       // per-lap lateral line variation (AI-02)
+    lineLap: -1,       // lap for which lineBias was last generated
   };
 }
 
@@ -289,6 +307,8 @@ let floatingTexts      = [];  // [{text,color,x,y,alpha,vy,size}]
 let cpFlash            = 0;   // seconds remaining of checkpoint flash
 let damageWarningShown = 0;   // last damage% when warning was shown
 let wrongWayTimer      = 0;   // seconds player has been going wrong-way
+let drsAvail           = false; // player DRS available this frame (DRS-01)
+let drsActive          = false; // player DRS boost currently active
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -342,9 +362,12 @@ const Net = (() => {
 
 // ── Audio (Web Audio API) ─────────────────────────────────────────────────────
 let audioCtx = null;
-let engineOsc = null, engineOsc2 = null, engineGain = null;
+let engineOsc = null, engineOsc2 = null, engineGain = null, engineFilter = null;
 let brakeNoiseNode = null, brakeGainNode = null;
 let engineRunning = false;
+
+// Background music (AUDIO-01) — self-contained step sequencer
+let musicGain = null, musicInterval = null, musicStep = 0;
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -357,9 +380,9 @@ function startEngine() {
   const ac = getAudioCtx();
   engineOsc  = ac.createOscillator(); engineOsc.type  = 'sawtooth'; engineOsc.frequency.value  = 80;
   engineOsc2 = ac.createOscillator(); engineOsc2.type = 'square';   engineOsc2.frequency.value = 82;
-  const filter = ac.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1200; filter.Q.value = 1;
+  engineFilter = ac.createBiquadFilter(); engineFilter.type = 'lowpass'; engineFilter.frequency.value = 1200; engineFilter.Q.value = 1;
   engineGain = ac.createGain(); engineGain.gain.value = 0;
-  engineOsc.connect(filter); engineOsc2.connect(filter); filter.connect(engineGain); engineGain.connect(ac.destination);
+  engineOsc.connect(engineFilter); engineOsc2.connect(engineFilter); engineFilter.connect(engineGain); engineGain.connect(ac.destination);
   engineOsc.start(); engineOsc2.start();
   engineGain.gain.setTargetAtTime(0.12, ac.currentTime, 0.1);
   engineRunning = true;
@@ -371,7 +394,14 @@ function stopEngine() {
   engineGain.gain.setTargetAtTime(0, ac.currentTime, 0.2);
   const o1 = engineOsc, o2 = engineOsc2;
   setTimeout(() => { try { o1.stop(); o2.stop(); } catch(_){} }, 400);
-  engineRunning = false; engineOsc = null; engineOsc2 = null; engineGain = null;
+  engineRunning = false; engineOsc = null; engineOsc2 = null; engineGain = null; engineFilter = null;
+}
+
+// AUDIO-03: muffle the engine while inside the tunnel by dropping the low-pass cutoff.
+function setEngineMuffled(muffled) {
+  if (!engineRunning || !engineFilter) return;
+  const ac = getAudioCtx();
+  engineFilter.frequency.setTargetAtTime(muffled ? 480 : 1200, ac.currentTime, 0.08);
 }
 
 function updateEnginePitch(speed) {
@@ -428,6 +458,84 @@ function playGoSound() {
       osc.connect(g); g.connect(ac.destination);
       osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.6);
     });
+  } catch(_){}
+}
+
+// ── Background music (AUDIO-01) ────────────────────────────────────────────────
+// A low-volume driving bass + arpeggio in A minor, scheduled as discrete steps.
+// Deliberately understated so it sits under the engine and never masks feedback SFX.
+const MUSIC_BASS = [110.0, 110.0, 164.8, 110.0, 130.8, 130.8, 98.0, 98.0]; // A2 arp pattern
+const MUSIC_ARP  = [440.0, 523.3, 659.3, 523.3, 587.3, 659.3, 784.0, 659.3]; // higher sparkle
+function playMusicNote(freq, dur, type, vol, dest) {
+  const ac = getAudioCtx();
+  const osc = ac.createOscillator(); osc.type = type; osc.frequency.value = freq;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(vol, ac.currentTime + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+  osc.connect(g); g.connect(dest);
+  osc.start(ac.currentTime); osc.stop(ac.currentTime + dur + 0.05);
+}
+function startMusic() {
+  if (musicInterval) return;
+  try {
+    const ac = getAudioCtx();
+    musicGain = ac.createGain();
+    musicGain.gain.value = 0.0001;
+    musicGain.connect(ac.destination);
+    musicGain.gain.setTargetAtTime(0.5, ac.currentTime, 0.6); // fade in under the engine
+    musicStep = 0;
+    musicInterval = setInterval(() => {
+      if (!musicGain) return;
+      const i = musicStep % 8;
+      playMusicNote(MUSIC_BASS[i], 0.22, 'triangle', 0.10, musicGain);      // bass pulse
+      if (i % 2 === 0) playMusicNote(MUSIC_ARP[i], 0.16, 'square', 0.028, musicGain); // sparkle on the beat
+      musicStep++;
+    }, 190); // ~132 BPM eighth-notes
+  } catch(_){}
+}
+function stopMusic() {
+  if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+  if (musicGain) {
+    try {
+      const ac = getAudioCtx();
+      musicGain.gain.setTargetAtTime(0, ac.currentTime, 0.3); // AUDIO-01: fade out at the flag
+      const g = musicGain;
+      setTimeout(() => { try { g.disconnect(); } catch(_){} }, 800);
+    } catch(_){}
+    musicGain = null;
+  }
+}
+
+// AUDIO-02: rising synth sweep celebrating an overtake.
+function playOvertakeSound() {
+  try {
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator(); osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(330, ac.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ac.currentTime + 0.35);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.14, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.45);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.5);
+  } catch(_){}
+}
+
+// AUDIO-02: DRS activation whoosh — filtered noise burst that opens up.
+function playDrsSound() {
+  try {
+    const ac = getAudioCtx();
+    const size = Math.floor(ac.sampleRate * 0.4);
+    const buf = ac.createBuffer(1, size, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < size; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / size);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(600, ac.currentTime);
+    f.frequency.exponentialRampToValueAtTime(4200, ac.currentTime + 0.35);
+    const g = ac.createGain(); g.gain.value = 0.18;
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
   } catch(_){}
 }
 
@@ -622,6 +730,16 @@ function drawCar(car, carIdx) {
   ctx.fillStyle = 'rgba(10,20,40,0.88)';
   ctx.fillRect(-3, -5, 6, 3.5);
 
+  // VFX-03: overtake flash — white overlay that fades over ~0.5s
+  const flash = car.flashUntil && performance.now() < car.flashUntil
+    ? Math.min(1, (car.flashUntil - performance.now()) / 500) : 0;
+  if (flash > 0) {
+    ctx.globalAlpha = flash * 0.85;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-13, -23, 26, 45);
+    ctx.globalAlpha = 1;
+  }
+
   ctx.restore();
 
   // Car number in screen space (avoids distortion from matrix)
@@ -702,6 +820,50 @@ function resolveCarCollision(a, b) {
   return true;
 }
 
+// ── Classification / DRS helpers ──────────────────────────────────────────────
+// cpScore: higher = further along the race (finished cars rank at Infinity).
+function cpScore(c) {
+  return c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
+}
+
+// Nearest car directly ahead of `car` in classification (or null if `car` leads).
+function carAhead(car) {
+  const myScore = cpScore(car);
+  let best = null, bestScore = Infinity;
+  for (const other of cars) {
+    if (other === car) continue;
+    const s = cpScore(other);
+    if (s >= myScore && s < bestScore) { bestScore = s; best = other; }
+  }
+  return best;
+}
+
+// DRS-01: available when within DRS_RANGE of the car ahead and not yet used this lap.
+function drsAvailableFor(car) {
+  if (car.finished || car.drsLap === car.lap) return false;
+  if (performance.now() < car.drsUntil) return false; // already boosting
+  const ahead = carAhead(car);
+  if (!ahead) return false;
+  const dx = ahead.x - car.x, dy = ahead.y - car.y;
+  return dx * dx + dy * dy < DRS_RANGE * DRS_RANGE;
+}
+
+function activateDRS(car) {
+  if (!drsAvailableFor(car)) return;
+  car.drsUntil = performance.now() + DRS_DURATION;
+  car.drsLap   = car.lap;
+  if (car.isPlayer) playDrsSound();
+}
+
+// VFX-02: screen shake reused for off-track exits and hard collisions.
+function triggerShake() {
+  clearTimeout(shakeTimer);
+  canvasWrap.classList.remove('shake');
+  void canvasWrap.offsetWidth; // force reflow so the animation restarts
+  canvasWrap.classList.add('shake');
+  shakeTimer = setTimeout(() => canvasWrap.classList.remove('shake'), 320);
+}
+
 // ── Checkpoint / lap logic ────────────────────────────────────────────────────
 function checkCheckpoints(car) {
   if (car.finished) return;
@@ -719,13 +881,23 @@ function checkCheckpoints(car) {
             // A new lap is starting — show the lap about to begin
             addFloatingText(`VUELTA ${lapNum + 1} / ${TOTAL_LAPS}`, '#f8fafc', 240, 250, 22);
           }
-          if (lastLapMs < bestLapMs) {
+          // VFX-05 / criterion 5: lap time vs personal best
+          const prevBest = bestLapMs;
+          if (lastLapMs < prevBest) {
             bestLapMs = lastLapMs;
             sessionRecord = true;
             recordFlashUntil = performance.now() + 2000;
-            localStorage.setItem('cr_best_lap_ms', bestLapMs);
+            localStorage.setItem('cr_best_lap_ms', Math.round(bestLapMs));
             updateLobbyRecord();
-            addFloatingText(`⚡ ¡VUELA, FRANCO!  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 280, 14);
+            if (isFinite(prevBest)) {
+              const delta = ((prevBest - lastLapMs) / 1000).toFixed(1);
+              addFloatingText(`⭐ RÉCORD PERSONAL! -${delta}s`, '#fbbf24', 240, 282, 15);
+            } else {
+              addFloatingText(`⭐ ¡VUELA, FRANCO!  ${formatTime(lastLapMs)}`, '#fbbf24', 240, 282, 15);
+            }
+          } else {
+            const delta = ((lastLapMs - prevBest) / 1000).toFixed(1);
+            addFloatingText(`${formatTime(lastLapMs)}  +${delta}s récord`, '#cbd5e1', 240, 282, 14);
           }
         }
       }
@@ -746,7 +918,8 @@ function updateCar(car, dt, damage = 0) {
   if (car.finished) return;
   const onTrack = isOnTrack(car.x, car.y);
   const damageFactor = 1 - (Math.min(damage, 100) / 100) * 0.45;
-  const maxSpd  = (onTrack ? MAX_SPD_ON : MAX_SPD_OFF) * damageFactor;
+  const drsMul  = performance.now() < car.drsUntil ? DRS_BOOST : 1.0; // DRS-01
+  const maxSpd  = (onTrack ? MAX_SPD_ON : MAX_SPD_OFF) * damageFactor * drsMul;
 
   // Auto-accelerate (always forward)
   car.speed += AUTO_ACCEL * dt;
@@ -790,11 +963,18 @@ function updateAI(car, dt) {
   const pers     = car.personality || PERSONALITIES.consistent;
   const noiseAmp = pers.noiseAmp;  // personality-driven noise amplitude
 
+  // AI-02: regenerate a small lateral line bias once per lap so the racing line
+  // differs lap-to-lap (varies within ±6px, scaled by personality noise appetite).
+  if (car.lineLap !== car.lap) {
+    car.lineLap = car.lap;
+    car.lineBias = (Math.random() - 0.5) * 12 * (0.5 + pers.noiseAmp * 10);
+  }
+
   // Navigate using fine-grained AI_WAYPOINTS (stays on road) — per-car wpIdx
   const wp = AI_WAYPOINTS[car.wpIdx];
-  // Apply lineMult as a subtle lateral offset toward the apex (aggressive) or wider (defensive)
-  // lineMult < 1 → tighter line; lineMult > 1 → wider line; offset is small to keep AI on track
-  const lineOffset = (1.0 - pers.lineMult) * 5; // max ±5px lateral in world space
+  // Apply lineMult as a lateral offset toward the apex (aggressive) or wider (defensive),
+  // plus the per-lap lineBias (AI-02). lineMult < 1 → tighter; > 1 → wider.
+  const lineOffset = (1.0 - pers.lineMult) * 6 + car.lineBias; // world-space px
   const wpDx = wp[0] - car.x + lineOffset * Math.cos(car.angle + Math.PI / 2);
   const wpDy = wp[1] - car.y + lineOffset * Math.sin(car.angle + Math.PI / 2);
 
@@ -813,17 +993,22 @@ function updateAI(car, dt) {
   const noise    = (Math.random() - 0.5) * noiseAmp * dt;
   car.angle += Math.sign(diff) * Math.min(absDiff, maxTurn) + noise;
 
-  // Brake before sharp corners — scale base factor (0.35) by personality brakeMult
-  const braking  = absDiff > 0.65;
-  const lapBonus = 1 + Math.min(car.lap, 2) * 0.04; // +4% per completed lap, max +8%
-  // Apply personality speedMult to the AI's effective top speed (CARS-02)
-  const aiMaxSpd = MAX_SPD_ON * skill * pers.speedMult * lapBonus * (braking ? 0.60 : 1.0);
+  // AI-01: real corner braking. The sharper the required turn, the harder the AI brakes.
+  // brakeStrength 0→1 across a 0.5–1.4 rad steering demand, scaled by personality brakeMult.
+  const braking       = absDiff > 0.5;
+  const brakeStrength = Math.min(1, Math.max(0, (absDiff - 0.5) / 0.9)) * pers.brakeMult;
+  const lapBonus      = 1 + Math.min(car.lap, 2) * 0.04; // +4% per completed lap, max +8%
+  // DRS boost (DRS-01): the AI activates DRS automatically when close behind (see racing loop)
+  const drsActive     = performance.now() < car.drsUntil;
+  const drsMul        = drsActive ? DRS_BOOST : 1.0;
+  // Apply personality speedMult and braking cornering cap to the AI's effective top speed
+  const aiMaxSpd = MAX_SPD_ON * skill * pers.speedMult * lapBonus * drsMul * (1 - 0.42 * brakeStrength);
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;
   car.speed -= car.speed * FRICTION_K * dt;
-  // brakeMult scales the base 0.35 factor — NOTE: 0.35 base intentional (AI-01/Phase 3 will raise to 0.70)
-  if (braking) car.speed -= BRAKE_FORCE * 0.35 * pers.brakeMult * dt;
+  // AI-01: braking force raised 0.35 → 0.7 base, graded by corner sharpness
+  if (braking) car.speed -= BRAKE_FORCE * 0.7 * brakeStrength * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
   car.x += Math.cos(car.angle) * car.speed * dt;
@@ -857,9 +1042,18 @@ function updateHUD() {
   const playerRank = ranked.findIndex(r => r.i === 0) + 1; // 1-based
   hudPos.textContent = `P${playerRank}`;
 
-  // Overtake detection — player moved up in classification
-  if (playerRank < prevPlayerRank) {
-    addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+  // Overtake detection (VFX-03 / AUDIO-02). Skip the first frame (prevPlayerRank === Infinity)
+  // so neither branch fires spuriously at the race start.
+  if (prevPlayerRank !== Infinity) {
+    if (playerRank < prevPlayerRank) {
+      addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+      playOvertakeSound();
+      // Flash the rival(s) we just cleared
+      for (let k = 1; k < cars.length; k++) cars[k].flashUntil = performance.now() + 500;
+    } else if (playerRank > prevPlayerRank) {
+      addFloatingText('¡TE PASARON!', '#ef4444', 240, 220, 18);
+      cars[0].flashUntil = performance.now() + 500;
+    }
   }
   prevPlayerRank = playerRank;
 
@@ -952,6 +1146,46 @@ function drawOffTrackVignette(alpha) {
   grad.addColorStop(1,   `rgba(180,0,0,${alpha})`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 480, 640);
+}
+
+// ── Damage tint (VFX-01) ──────────────────────────────────────────────────────
+// Full-screen tint that ramps from transparent → orange → red as damage climbs
+// above ~40%. Communicates a failing car at a glance without hiding the track.
+function drawDamageTint(damage) {
+  if (damage < 40) return;
+  const t = Math.min(1, (damage - 40) / 60); // 0 at 40% → 1 at 100%
+  // Orange (249,115,22) → red (220,38,38) as t rises
+  const r = Math.round(249 + (220 - 249) * t);
+  const g = Math.round(115 + (38 - 115) * t);
+  const b = Math.round(22 + (38 - 22) * t);
+  ctx.fillStyle = `rgba(${r},${g},${b},${0.10 + t * 0.28})`;
+  ctx.fillRect(0, 0, 480, 640);
+}
+
+// ── DRS speed lines (VFX-04) ──────────────────────────────────────────────────
+// Cyan motion streaks along the screen edges while the player's DRS boost is active.
+function drawDrsLines() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,224,255,0.5)';
+  ctx.lineWidth = 3;
+  const t = performance.now() / 60;
+  for (let k = 0; k < 6; k++) {
+    const off = ((t + k * 40) % 240);
+    const x1 = 18, x2 = 462;
+    ctx.beginPath(); ctx.moveTo(x1, 120 + off); ctx.lineTo(x1, 120 + off + 40); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, 120 + off); ctx.lineTo(x2, 120 + off + 40); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ── DRS HUD indicator + mobile button (DRS-01) ────────────────────────────────
+const drsBtn = document.getElementById('btn-drs');
+function updateDrsUI(available, active) {
+  if (!drsBtn) return;
+  drsBtn.hidden = !(available || active);
+  drsBtn.classList.toggle('available', available && !active);
+  drsBtn.classList.toggle('active', active);
+  drsBtn.textContent = active ? 'DRS ●' : 'DRS';
 }
 
 // ── Minimap ────────────────────────────────────────────────────────────────────
@@ -1060,6 +1294,7 @@ function loop(ts) {
         phase = 'racing';
         lapStartTime = performance.now(); // BUG-04: lapStartTime correctly initialized here (verified)
         playGoSound();
+        startMusic(); // AUDIO-01
       } else {
         cdTimer = 1;
       }
@@ -1104,6 +1339,8 @@ function loop(ts) {
             cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
             playCollisionSound();
           }
+          // VFX-02: hard impacts involving the player shake the screen
+          if ((i === 0 || j === 0) && Math.abs(vA - vB) > 150) triggerShake();
           // AI vs AI collisions: play sound only if close to player (optional ambience)
           // No damage accumulation for AI-vs-AI pairs
         }
@@ -1137,6 +1374,15 @@ function loop(ts) {
       car.inTunnel = (car.x >= TUNNEL_ZONE.x1 && car.x <= TUNNEL_ZONE.x2 &&
                       car.y >= TUNNEL_ZONE.y1 && car.y <= TUNNEL_ZONE.y2);
     });
+    setEngineMuffled(cars[0].inTunnel); // AUDIO-03: muffle engine inside the tunnel
+
+    // DRS-01: AI auto-activates when it qualifies; track player availability for the HUD/button.
+    if (gameMode === 'solo') {
+      cars.forEach(car => { if (!car.isPlayer && drsAvailableFor(car)) activateDRS(car); });
+    }
+    drsActive = performance.now() < cars[0].drsUntil;
+    drsAvail  = !drsActive && drsAvailableFor(cars[0]);
+    updateDrsUI(drsAvail, drsActive);
 
     // Compute onTrk before render block — used in screen-space section after ctx.restore()
     const onTrk = isOnTrack(cars[0].x, cars[0].y);
@@ -1158,11 +1404,7 @@ function loop(ts) {
       cars[0].damage = Math.min(100, cars[0].damage + 1.2 * dt);
       if (wasOnTrack) {
         cars[0].damage = Math.min(100, cars[0].damage + 2);
-        clearTimeout(shakeTimer);
-        canvasWrap.classList.remove('shake');
-        void canvasWrap.offsetWidth;
-        canvasWrap.classList.add('shake');
-        shakeTimer = setTimeout(() => canvasWrap.classList.remove('shake'), 320);
+        triggerShake();
       }
     }
     // Slow damage recovery while on track — makes game more forgiving
@@ -1208,7 +1450,8 @@ function loop(ts) {
         winner = bestIdx;
       }
       if (winner !== null) {
-        stopEngine(); stopBrakeSound();
+        stopEngine(); stopBrakeSound(); stopMusic(); // AUDIO-01: music fades at the flag
+        updateDrsUI(false, false); // hide DRS button once the race is over
         if (gameMode === 'multi' && winner === 0) Net.send({ type: 'finish' });
         phase = 'done';
       }
@@ -1232,9 +1475,21 @@ function loop(ts) {
     ctx.restore();
 
     // === SCREEN-SPACE RENDER (racing) ===
+    if (drsActive) drawDrsLines(); // VFX-04 — behind HUD, over the world
     drawMinimap();
 
+    drawDamageTint(cars[0].damage); // VFX-01: progressive orange→red damage tint
     if (!onTrk) drawOffTrackVignette(0.28); // reduced: walls keep car near track, vignette is brief warning
+
+    // DRS indicator (DRS-01)
+    if (drsAvail || drsActive) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 15px system-ui';
+      ctx.fillStyle = drsActive ? '#00e0ff' : `rgba(0,224,255,${0.55 + 0.45 * Math.abs(Math.sin(performance.now() / 220))})`;
+      ctx.fillText(drsActive ? '⚡ DRS ACTIVO' : 'DRS DISPONIBLE', 240, 610);
+      ctx.restore();
+    }
 
     // Checkpoint flash (green border sweep)
     if (cpFlash > 0) {
@@ -1376,6 +1631,7 @@ function onMsg(data) {
 
 function onDisconnect() {
   stopLoop();
+  stopEngine(); stopBrakeSound(); stopMusic();
   Net.destroy();
   const modal = document.getElementById('disconnect-modal');
   if (modal) {
@@ -1395,7 +1651,7 @@ function resetGame() {
     // Solo: 2 cars — player vs the one selected rival
     cars = [
       Object.assign(makeCar(0), { isPlayer: true,  damage: 0, wpIdx: 0, rivalData: null,                          personality: null }),
-      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[selectedRivalIdx], personality: PERSONALITIES.consistent }),
+      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[selectedRivalIdx], personality: personalityFor(RIVALS[selectedRivalIdx].skill) }),
     ];
   } else {
     // Multi: 2 cars — local player + remote peer
@@ -1432,6 +1688,9 @@ function resetGame() {
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
+  drsAvail           = false;
+  drsActive          = false;
+  updateDrsUI(false, false);
   prevPlayerRank     = Infinity;  // suppress spurious overtake on race start — CARS-04 HUD P1-P4 (WR-04)
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
@@ -1450,6 +1709,11 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
   if (e.key === 'ArrowDown'  || e.key.toLowerCase() === 's') keys.down  = true;
   if (e.key === ' ') { e.preventDefault(); keys.down = true; }  // CTRL-03: spacebar brake (preventDefault stops page scroll)
+  // DRS-01: activate the boost with ArrowUp / W / Shift while racing
+  if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key === 'Shift') {
+    if (e.key === 'ArrowUp') e.preventDefault();
+    if (phase === 'racing' && cars[0]) activateDRS(cars[0]);
+  }
 });
 window.addEventListener('keyup', e => {
   if (e.key === 'ArrowLeft'  || e.key.toLowerCase() === 'a') keys.left  = false;
@@ -1475,6 +1739,14 @@ function bindTouch(id, flag) {
 bindTouch('touch-left',  'left');
 bindTouch('touch-right', 'right');
 bindTouch('touch-brake', 'down');
+
+// DRS-01: tap the floating DRS button to activate the boost
+if (drsBtn) {
+  drsBtn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (phase === 'racing' && cars[0]) activateDRS(cars[0]);
+  }, { passive: false });
+}
 
 // ── Screen management ─────────────────────────────────────────────────────────
 function goTo(name) {
@@ -1707,6 +1979,7 @@ document.getElementById('btn-menu').addEventListener('click', () => {
   stopResultPoll();
   stopEngine();
   stopBrakeSound();
+  stopMusic();
   if (gameMode === 'multi') Net.destroy();
   gameMode = 'multi';
   isHost   = false;
@@ -1735,15 +2008,15 @@ function pollResults() {
         ? 'Completaste las 3 vueltas primero 🇦🇷'
         : 'El rival ganó esta vez — ¡Revancha!';
     }
-    // Show best lap info
+    // Show best lap info — always render a best-lap line, with a --:-- placeholder
+    // when no lap has ever been completed (criterion 5).
     if (resultLap) {
-      if (lastLapMs > 0 && isFinite(bestLapMs)) {
-        const isNew = sessionRecord;
-        resultLap.textContent = isNew
+      if (isFinite(bestLapMs)) {
+        resultLap.textContent = sessionRecord
           ? `⭐ RÉCORD: ${formatTime(bestLapMs)}`
           : `Mejor vuelta: ${formatTime(bestLapMs)}`;
       } else {
-        resultLap.textContent = '';
+        resultLap.textContent = 'Mejor vuelta: --:--';
       }
     }
     goTo('results');
