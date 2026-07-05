@@ -18,9 +18,9 @@ progress:
 
 ## Current Status
 
-**Active phase:** Phase 3b — Gameplay Refactor (PLANNED, not started)
-**Current plan:** 03b-01 next (of 4 waves)
-**Last action:** User playtested the Phase 3 build (PR #3) and reported: collision sticking with the rival, win declared before reaching the META, random ¡LO PASÉ! messages, overall "jugabilidad pésima". All three bugs root-caused and confirmed against the code (03b-RESEARCH.md). Wrote CONTEXT + 4 wave plans centered on one load-bearing refactor: continuous trackProgress() replacing discrete checkpoint-based rank/gap/finish.
+**Active phase:** Phase 3b — Gameplay Refactor (Wave 1 of 4 COMPLETE)
+**Current plan:** 03b-02 next (contact & wall physics)
+**Last action:** Shipped 03b-01: trackProgress() continuous progress (SPINE_CUMLEN, circuit=5499px), crossedFinish() segment test replacing the CP0 radius (win now fires at x=505, was x≈300), gates shrunk to r=100 + CP2 moved to apex exit, overtake engine with 600ms confirmation + 3s cooldown, real-seconds gaps. 10/10 automated checks + natural-race AI lap regression, zero JS errors.
 **Resumed:** 2026-07-05
 
 ## Project Reference

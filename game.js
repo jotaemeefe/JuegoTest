@@ -60,13 +60,34 @@ const ROAD_SPINE = [
   [200, 1500],
 ];
 
-// Checkpoints {x,y,r} — must be hit in order; CP0 = META / finish line
+// Checkpoints {x,y,r} — anti-shortcut gates hit in order (R3B-01).
+// CP0 is the META marker only: the finish itself is a segment-crossing test
+// (crossedFinish), never a radius — the old r=200 fired the lap 200px early.
+// Gate radii are 100 (ROAD_HALF_W+20): they trigger only on their own passage.
 const CPS = [
-  { x: 500,  y: 1500, r: 200 },  // 0  META — main straight (finish line)
-  { x: 950,  y: 1005, r: 200 },  // 1  Casino / Mirabeau plateau
-  { x: 528,  y: 602,  r: 220 },  // 2  Loews Hairpin apex
-  { x: 1190, y: 682,  r: 220 },  // 3  Tunnel mid
+  { x: 500,  y: 1500, r: 0   },  // 0  META — handled by crossedFinish(), r unused
+  { x: 950,  y: 1005, r: 100 },  // 1  Casino / Mirabeau plateau
+  { x: 575,  y: 598,  r: 100 },  // 2  Loews apex EXIT (was [528,602] r=220 — fired on the approach)
+  { x: 1190, y: 682,  r: 100 },  // 3  Tunnel mid
 ];
+
+// ── Continuous track progress constants (R3B-02) ──────────────────────────────
+// Prefix-sum of ROAD_SPINE segment lengths — arc-length lookup for trackProgress().
+const SPINE_CUMLEN = (() => {
+  const cum = [0];
+  for (let i = 1; i < ROAD_SPINE.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(ROAD_SPINE[i][0] - ROAD_SPINE[i - 1][0],
+                                     ROAD_SPINE[i][1] - ROAD_SPINE[i - 1][1]));
+  }
+  return cum;
+})();
+const SPINE_TOTAL_LEN = SPINE_CUMLEN[SPINE_CUMLEN.length - 1];
+const FINISH_X = 500;  // META stripe x on the main straight (y=1500) — matches drawTrack()
+// Arc position of the stripe along the spine (nearestSpinePoint is hoisted)
+const FINISH_ARC = (() => {
+  const n = nearestSpinePoint(FINISH_X, 1500);
+  return SPINE_CUMLEN[n.segIdx] + n.t * (SPINE_CUMLEN[n.segIdx + 1] - SPINE_CUMLEN[n.segIdx]);
+})();
 
 // Starting grid [P1, P2, P3, P4] — main straight y=1500, 2×2 staggered, pointing east (a:0)
 // All positions WEST of x=500 (META stripe) — cars start before finish line
@@ -275,6 +296,10 @@ function makeCar(idx) {
     flashUntil: 0,     // performance.now() until which the car flashes white (VFX-03)
     lineBias: 0,       // per-lap lateral line variation (AI-02)
     lineLap: -1,       // lap for which lineBias was last generated
+    prevX: s.x,        // position before the last move — finish-crossing test (R3B-01)
+    prevY: s.y,
+    startCrossed: false, // grid sits behind the META line; first crossing arms lap 1
+    progress: 0,       // continuous race progress, cached once per frame (R3B-02)
   };
 }
 
@@ -298,7 +323,6 @@ let recordFlashUntil = 0;    // timestamp until which to flash HUD gold
 
 // Off-track state
 let wasOnTrack      = true;
-let prevPlayerRank  = Infinity; // tracks player classification for overtake celebration (CARS-04)
 let shakeTimer      = null;
 let rivalAnimTimers = [];  // cleared on each visit to avoid double-animation
 
@@ -309,6 +333,17 @@ let damageWarningShown = 0;   // last damage% when warning was shown
 let wrongWayTimer      = 0;   // seconds player has been going wrong-way
 let drsAvail           = false; // player DRS available this frame (DRS-01)
 let drsActive          = false; // player DRS boost currently active
+
+// Overtake event engine (R3B-04): a rank change must persist RANK_CONFIRM_MS before
+// firing an event, and each direction has an OVERTAKE_CD_MS cooldown — kills both the
+// side-by-side flip-flop spam and the checkpoint-boundary false positives.
+const RANK_CONFIRM_MS = 600;
+const OVERTAKE_CD_MS  = 3000;
+let confirmedRank     = null; // last stable player rank (null until first racing frame)
+let pendingRank       = null; // candidate new rank awaiting confirmation
+let pendingRankSince  = 0;
+let lastPassMsgAt     = -Infinity;
+let lastLostMsgAt     = -Infinity;
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -785,7 +820,7 @@ function isOnTrack(x, y) {
 // Returns nearest point on ROAD_SPINE to (x,y), plus normalized track direction at that segment.
 // Used for Monaco barrier walls and wrong-way detection.
 function nearestSpinePoint(x, y) {
-  let bestDist2 = Infinity, bestX = x, bestY = y, bestSegIdx = 0;
+  let bestDist2 = Infinity, bestX = x, bestY = y, bestSegIdx = 0, bestT = 0;
   for (let i = 0; i < ROAD_SPINE.length - 1; i++) {
     const [ax, ay] = ROAD_SPINE[i], [bx, by] = ROAD_SPINE[i + 1];
     const dx = bx - ax, dy = by - ay;
@@ -794,11 +829,40 @@ function nearestSpinePoint(x, y) {
     const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / lenSq));
     const cx = ax + t * dx, cy = ay + t * dy;
     const d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy);
-    if (d2 < bestDist2) { bestDist2 = d2; bestX = cx; bestY = cy; bestSegIdx = i; }
+    if (d2 < bestDist2) { bestDist2 = d2; bestX = cx; bestY = cy; bestSegIdx = i; bestT = t; }
   }
   const [ax, ay] = ROAD_SPINE[bestSegIdx], [bx, by] = ROAD_SPINE[bestSegIdx + 1];
   const sdx = bx - ax, sdy = by - ay, slen = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
-  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist2), dirX: sdx / slen, dirY: sdy / slen };
+  return { x: bestX, y: bestY, dist: Math.sqrt(bestDist2), dirX: sdx / slen, dirY: sdy / slen,
+           segIdx: bestSegIdx, t: bestT };
+}
+
+// ── Continuous track progress (R3B-02) ─────────────────────────────────────────
+// One number that says how far along the race a car is, in world px. Rank, gaps,
+// overtake events and the damage-out winner fallback all read this single metric.
+// Measured relative to the META stripe so it is continuous across the lap seam.
+function trackProgress(car) {
+  const near = nearestSpinePoint(car.x, car.y);
+  const arc = SPINE_CUMLEN[near.segIdx] + near.t * (SPINE_CUMLEN[near.segIdx + 1] - SPINE_CUMLEN[near.segIdx]);
+  let rel = arc - FINISH_ARC;
+  if (rel < 0) rel += SPINE_TOTAL_LEN;
+  // Seam guard: a car shoved back over the stripe after being credited must read
+  // "just behind the line", not a full lap ahead.
+  if (car.startCrossed && car.nextCP === 1 && rel > SPINE_TOTAL_LEN * 0.9) rel -= SPINE_TOTAL_LEN;
+  // The grid sits behind the line: until the first crossing (startCrossed) a car is
+  // one lap behind the counting convention, which makes progress continuous at that
+  // first crossing (where lap does NOT increment).
+  const lapEff = car.lap + (car.startCrossed ? 0 : -1);
+  return lapEff * SPINE_TOTAL_LEN + rel;
+}
+
+// R3B-01: true iff the car's last movement segment crossed the META stripe heading east.
+function crossedFinish(car) {
+  if (car.prevX === undefined || car.prevX >= FINISH_X || car.x < FINISH_X) return false;
+  if (Math.cos(car.angle) <= 0) return false; // must be traveling east, not backing over
+  const t = (FINISH_X - car.prevX) / (car.x - car.prevX);
+  const yCross = car.prevY + (car.y - car.prevY) * t;
+  return Math.abs(yCross - 1500) <= ROAD_HALF_W;
 }
 
 function resolveCarCollision(a, b) {
@@ -821,19 +885,15 @@ function resolveCarCollision(a, b) {
 }
 
 // ── Classification / DRS helpers ──────────────────────────────────────────────
-// cpScore: higher = further along the race (finished cars rank at Infinity).
-function cpScore(c) {
-  return c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
-}
-
-// Nearest car directly ahead of `car` in classification (or null if `car` leads).
+// Nearest car directly ahead of `car` by continuous progress (or null if `car` leads).
+// Reads car.progress, cached once per racing frame.
 function carAhead(car) {
-  const myScore = cpScore(car);
-  let best = null, bestScore = Infinity;
+  let best = null, bestP = Infinity;
   for (const other of cars) {
-    if (other === car) continue;
-    const s = cpScore(other);
-    if (s >= myScore && s < bestScore) { bestScore = s; best = other; }
+    if (other === car || other.finished) continue;
+    if (other.progress >= car.progress && other.progress < bestP) {
+      bestP = other.progress; best = other;
+    }
   }
   return best;
 }
@@ -865,12 +925,16 @@ function triggerShake() {
 }
 
 // ── Checkpoint / lap logic ────────────────────────────────────────────────────
+// R3B-01: the finish is a real line-crossing test (crossedFinish), never a radius.
+// CPS[1..3] are anti-shortcut gates: a stripe crossing with gates pending counts nothing.
 function checkCheckpoints(car) {
   if (car.finished) return;
-  const cp = CPS[car.nextCP];
-  const dx = car.x - cp.x, dy = car.y - cp.y;
-  if (dx * dx + dy * dy < cp.r * cp.r) {
-    if (car.nextCP === 0) {
+
+  if (crossedFinish(car)) {
+    if (!car.startCrossed) {
+      // The grid sits behind the line — the first crossing arms lap 1, no lap counted.
+      car.startCrossed = true;
+    } else if (car.nextCP === 0) {
       if (car.isPlayer) {
         cpFlash = 0.30;
         if (lapStartTime > 0) {
@@ -906,10 +970,18 @@ function checkCheckpoints(car) {
         car.finished = true;
         return;
       }
-    } else if (car.isPlayer) {
-      cpFlash = 0.12;
+      car.nextCP = 1;
     }
-    car.nextCP = (car.nextCP + 1) % CPS.length;
+    return;
+  }
+
+  if (car.nextCP !== 0) {
+    const cp = CPS[car.nextCP];
+    const dx = car.x - cp.x, dy = car.y - cp.y;
+    if (dx * dx + dy * dy < cp.r * cp.r) {
+      if (car.isPlayer) cpFlash = 0.12;
+      car.nextCP = (car.nextCP + 1) % CPS.length;
+    }
   }
 }
 
@@ -936,6 +1008,7 @@ function updateCar(car, dt, damage = 0) {
   if (car.isPlayer && keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
   // Move — Monaco barrier walls: snap to track edge on boundary contact
+  car.prevX = car.x; car.prevY = car.y; // finish-crossing test reads this (R3B-01)
   const nextX = car.x + Math.cos(car.angle) * car.speed * dt;
   const nextY = car.y + Math.sin(car.angle) * car.speed * dt;
   car.x = nextX; car.y = nextY;
@@ -1011,76 +1084,65 @@ function updateAI(car, dt) {
   if (braking) car.speed -= BRAKE_FORCE * 0.7 * brakeStrength * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
+  car.prevX = car.x; car.prevY = car.y; // finish-crossing test reads this (R3B-01)
   car.x += Math.cos(car.angle) * car.speed * dt;
   car.y += Math.sin(car.angle) * car.speed * dt;
 }
 
 // ── HUD update ────────────────────────────────────────────────────────────────
-// CARS-04: clasificacion P1-P4 en tiempo real con desempate por distancia al CP
+// R3B-02/04: rank, gap and overtake events all derive from continuous trackProgress
+// (car.progress, cached once per frame) — no more checkpoint-boundary jumps or
+// per-frame tiebreak flips.
 function updateHUD() {
   if (!cars[0]) return;
   const lap = Math.min(cars[0].lap + 1, TOTAL_LAPS);
   hudLap.textContent = `VUELTA ${lap}/${TOTAL_LAPS}`;
 
-  // nextCP=0 means approaching finish line — worth CPS.length to avoid false 2nd
-  const cpScore = c => c.finished ? Infinity : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
-
-  // Rank all cars by cpScore (highest = ahead), tiebreak by euclidean distance to next CP
-  // (shorter distance = physically more ahead → ranks higher — Pitfall 6 fix)
   const ranked = cars
-    .map((c, i) => {
-      const score = cpScore(c);
-      const cp = CPS[c.nextCP] || CPS[0];
-      const distToCP = Math.sqrt((c.x - cp.x) ** 2 + (c.y - cp.y) ** 2);
-      return { i, score, distToCP };
-    })
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score; // higher score = ahead
-      return a.distToCP - b.distToCP;                    // tiebreak: closer to CP = ahead
-    });
-
+    .map((c, i) => ({ i, p: c.finished ? Infinity : c.progress }))
+    .sort((a, b) => b.p - a.p);
   const playerRank = ranked.findIndex(r => r.i === 0) + 1; // 1-based
   hudPos.textContent = `P${playerRank}`;
 
-  // Overtake detection (VFX-03 / AUDIO-02). Skip the first frame (prevPlayerRank === Infinity)
-  // so neither branch fires spuriously at the race start.
-  if (prevPlayerRank !== Infinity) {
-    if (playerRank < prevPlayerRank) {
-      addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
-      playOvertakeSound();
-      // Flash the rival(s) we just cleared
-      for (let k = 1; k < cars.length; k++) cars[k].flashUntil = performance.now() + 500;
-    } else if (playerRank > prevPlayerRank) {
-      addFloatingText('¡TE PASARON!', '#ef4444', 240, 220, 18);
-      cars[0].flashUntil = performance.now() + 500;
+  // Overtake events (R3B-04): the new ordering must persist RANK_CONFIRM_MS before an
+  // event fires, with a per-direction cooldown. Side-by-side jitter never confirms.
+  const now = performance.now();
+  if (confirmedRank === null) {
+    confirmedRank = playerRank; // first racing frame — establish baseline silently
+  } else if (playerRank === confirmedRank) {
+    pendingRank = null;
+  } else {
+    if (pendingRank !== playerRank) { pendingRank = playerRank; pendingRankSince = now; }
+    if (now - pendingRankSince >= RANK_CONFIRM_MS) {
+      const gained = playerRank < confirmedRank;
+      confirmedRank = playerRank;
+      pendingRank = null;
+      if (gained && now - lastPassMsgAt >= OVERTAKE_CD_MS) {
+        lastPassMsgAt = now;
+        addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+        playOvertakeSound();
+        const passed = ranked[playerRank] ? cars[ranked[playerRank].i] : null; // car now just behind
+        if (passed) passed.flashUntil = now + 500;
+      } else if (!gained && now - lastLostMsgAt >= OVERTAKE_CD_MS) {
+        lastLostMsgAt = now;
+        addFloatingText('¡TE PASARON!', '#ef4444', 240, 220, 18);
+        cars[0].flashUntil = now + 500;
+      }
     }
   }
-  prevPlayerRank = playerRank;
 
   if (gameMode === 'solo') {
-    // Gap display: find the car immediately ahead of the player in ranking
-    const playerScore = cpScore(cars[0]);
-    const rivals = cars.slice(1);
-    if (rivals.length > 0) {
-      const myP = playerScore;
-      // Find nearest rival (closest cpScore)
-      const nearestRival = rivals.reduce((best, c) => {
-        return Math.abs(cpScore(c) - myP) < Math.abs(cpScore(best) - myP) ? c : best;
-      }, rivals[0]);
-      const itsP = cpScore(nearestRival);
-      const diff = myP - itsP;
-      let gapText, gapColor;
-      if (Math.abs(diff) < 0.5) {
-        const dist = Math.sqrt((cars[0].x - nearestRival.x) ** 2 + (cars[0].y - nearestRival.y) ** 2);
-        gapText  = `~${(dist / 190).toFixed(1)}s`;
-        gapColor = '#94a3b8';
+    // Gap to the rival in real seconds: progress delta (px along track) over player speed
+    if (cars[1]) {
+      const d = cars[0].progress - cars[1].progress; // + = player ahead
+      if (isFinite(d)) {
+        const secs = (Math.abs(d) / Math.max(cars[0].speed, 100)).toFixed(1);
+        hudRole.textContent = `${d >= 0 ? '+' : '-'}${secs}s`;
+        hudRole.style.color = d >= 0 ? '#10b981' : '#ef4444';
       } else {
-        const secs = (Math.abs(diff) * 1.4).toFixed(1);
-        gapText  = diff > 0 ? `+${secs}s` : `-${secs}s`;
-        gapColor = diff > 0 ? '#10b981' : '#ef4444';
+        hudRole.textContent = '—'; // rival already finished
+        hudRole.style.color = '#94a3b8';
       }
-      hudRole.textContent        = gapText;
-      hudRole.style.color        = gapColor;
       hudRole.style.background   = 'rgba(0,0,0,0.45)';
       hudRole.style.borderRadius = '4px';
       hudRole.style.padding      = '1px 5px';
@@ -1361,6 +1423,10 @@ function loop(ts) {
       }
     }
 
+    // Cache continuous progress once per frame — rank, gap, DRS and the winner
+    // fallback all read car.progress (R3B-02)
+    cars.forEach(c => { c.progress = c.finished ? Infinity : trackProgress(c); });
+
     updateHUD();
 
     // Engine pitch tracks player speed
@@ -1439,13 +1505,11 @@ function loop(ts) {
         if (cars[i].finished) { winner = i; break; }
       }
       if (winner === null && cars[0].damage >= 100) {
-        // Player destroyed — find the furthest-ahead non-player car (CR-01)
-        const cpScore = c => c.finished ? Infinity
-          : c.lap * CPS.length + (c.nextCP === 0 ? CPS.length : c.nextCP);
-        let bestIdx = 1, bestScore = -Infinity;
+        // Player destroyed — furthest-ahead rival by continuous progress (CR-01/R3B-02)
+        let bestIdx = 1, bestP = -Infinity;
         for (let i = 1; i < cars.length; i++) {
-          const s = cpScore(cars[i]);
-          if (s > bestScore) { bestScore = s; bestIdx = i; }
+          const p = cars[i].finished ? Infinity : cars[i].progress;
+          if (p > bestP) { bestP = p; bestIdx = i; }
         }
         winner = bestIdx;
       }
@@ -1611,6 +1675,9 @@ function onMsg(data) {
     cars[1].lap        = lap;
     cars[1].nextCP     = cp;
     cars[1].lastUpdate = performance.now();
+    // R3B-02: arm the remote car's lap convention on its first stripe crossing —
+    // its packet-to-packet segment (prevX/Y → x/y) drives the same crossing test.
+    if (!cars[1].startCrossed && crossedFinish(cars[1])) cars[1].startCrossed = true;
   }
 
   if (data.type === 'finish' && !winner) {
@@ -1691,7 +1758,10 @@ function resetGame() {
   drsAvail           = false;
   drsActive          = false;
   updateDrsUI(false, false);
-  prevPlayerRank     = Infinity;  // suppress spurious overtake on race start — CARS-04 HUD P1-P4 (WR-04)
+  confirmedRank      = null;      // overtake engine baseline re-established on first frame (R3B-04)
+  pendingRank        = null;
+  lastPassMsgAt      = -Infinity;
+  lastLostMsgAt      = -Infinity;
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }

@@ -63,9 +63,11 @@ The camera is a rotating follow camera (Micro Machines style): the world is draw
 
 Remote car rendering uses `remoteRenderPos()` which interpolates between the last two received positions to smooth 50ms network jitter.
 
-### Checkpoint and lap system
+### Checkpoint, lap and progress system
 
-4 checkpoints (`CPS`) must be hit in order. CP0 doubles as the finish line. `checkCheckpoints()` updates `car.nextCP` and `car.lap`. A lap is complete when CP0 is crossed after all others. Best lap time is persisted in `localStorage` (`cr_best_lap_ms`). Rival win/loss results are stored as `cr_rival_<idx>`.
+The finish is a real **segment-crossing test** (`crossedFinish()`: the car's movement segment vs the META stripe at x=500, heading east) — never a radius. `CPS[1..3]` are 100px anti-shortcut gates hit in order (`car.nextCP`); a stripe crossing with gates pending counts nothing. The grid sits behind the line, so the first crossing only arms lap 1 (`car.startCrossed`).
+
+**Continuous race progress** (`trackProgress()`: lap × circuit length + arc-length along `ROAD_SPINE` via the `SPINE_CUMLEN` prefix table, measured relative to the stripe) is cached per frame as `car.progress` and drives ranking, the real-seconds gap display, DRS proximity (`carAhead`), the damage-out winner fallback, and overtake events (rank change must persist 600ms, 3s per-direction cooldown). Best lap time is persisted in `localStorage` (`cr_best_lap_ms`). Rival win/loss results are stored as `cr_rival_<idx>`.
 
 ### Audio
 

@@ -123,7 +123,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 03b-01-PLAN.md — trackProgress() primitive, real finish-line crossing, gate-radius fix, honest overtake events + real gaps
+- [x] 03b-01-PLAN.md — trackProgress() primitive, real finish-line crossing, gate-radius fix, honest overtake events + real gaps (10/10 checks — see 03b-01-SUMMARY.md)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -166,7 +166,7 @@ Plans:
 | 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
 | 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
 | 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
-| 3b. Gameplay Refactor | 0/4 | Planned | - |
+| 3b. Gameplay Refactor | 1/4 | In Progress | - |
 
 ---
 
