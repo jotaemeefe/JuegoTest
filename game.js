@@ -302,6 +302,14 @@ function makeCar(idx) {
     progress: 0,       // continuous race progress, cached once per frame (R3B-02)
     velAngle: s.a,     // velocity direction — lags heading for micro-drift (R3B-06)
     wallContact: false, // true while grinding the barrier (R3B-05)
+    avoidActive: false, // sticky swerve state while clearing a car ahead (W3-T1)
+    avoidSide: 1,      // chosen swerve side — held until the obstacle is cleared
+    defendUntil: 0,    // defensive one-move block active until (W3-T1)
+    defendCdUntil: 0,  // block cooldown — one move per straight, F1 style
+    defendSide: 1,     // lateral sign of the active block
+    pressureTime: 0,   // seconds the player has been within 1s behind (W3-T3)
+    mistakeCount: 0,   // pressure mistakes committed (observability)
+    rubber: 1.0,       // current rubber-band multiplier (observability)
   };
 }
 
@@ -952,16 +960,18 @@ function resolveCarCollision(a, b) {
   a.speed = Math.max(0, a.speed - relV * 0.45);
   b.speed = Math.max(0, b.speed - relV * 0.45);
 
-  // Anti-stick: stagger the cars across the contact tangent and nudge their headings
-  // apart (each car toward the side it already leans to), so the ram-loop cannot
-  // re-form. Repeated closing contact accumulates nudges until the cars diverge.
+  // Anti-stick: stagger the cars across the contact tangent and nudge their headings,
+  // EACH toward its own lean side — pushing a car against where it is steering (e.g.
+  // an AI mid-swerve) cancels its escape and re-forms the glue. If both lean the same
+  // way the faster car still slides past on preserved tangential motion.
   const aSide = Math.sign(Math.cos(a.angle) * tx + Math.sin(a.angle) * ty) || 1;
+  const bSide = Math.sign(Math.cos(b.angle) * tx + Math.sin(b.angle) * ty) || -aSide;
   const lateral = Math.min(8, 2 + relV * 0.02);
   a.x += tx * aSide * lateral; a.y += ty * aSide * lateral;
-  b.x -= tx * aSide * lateral; b.y -= ty * aSide * lateral;
+  b.x += tx * bSide * lateral; b.y += ty * bSide * lateral;
   const nudge = Math.min(0.22, 0.08 + relV * 0.0004);
   a.angle += aSide * nudge;   a.velAngle += aSide * nudge;
-  b.angle -= aSide * nudge;   b.velAngle -= aSide * nudge;
+  b.angle += bSide * nudge;   b.velAngle += bSide * nudge;
   return { impact: relV, aVn, bVn };
 }
 
@@ -1115,11 +1125,56 @@ function updateAI(car, dt) {
     car.lineBias = (Math.random() - 0.5) * 12 * (0.5 + pers.noiseAmp * 10);
   }
 
+  // W3-T1: opponent awareness. A car ahead inside a 150px / ±44° cone bends the
+  // steering target AROUND it (angular bias — unlike a waypoint offset, its strength
+  // does not dilute with waypoint distance). The chosen side is STICKY until the
+  // obstacle is cleared: re-picking each frame lets collision nudges cancel the
+  // swerve and the AI dances on the opponent's gearbox forever.
+  let avoidBias = 0, boxedCap = Infinity, sawObstacle = false;
+  const hdX = Math.cos(car.angle), hdY = Math.sin(car.angle);
+  for (const other of cars) {
+    if (other === car || other.finished) continue;
+    const odx = other.x - car.x, ody = other.y - car.y;
+    const od2 = odx * odx + ody * ody;
+    if (od2 > 160 * 160 || od2 === 0) continue;
+    const od = Math.sqrt(od2);
+    const fwd = (odx * hdX + ody * hdY) / od;
+    // Cone hysteresis: engage only when the obstacle is ahead (±44°), but once
+    // engaged keep biasing until it is genuinely BEHIND — releasing while merely
+    // alongside lets the waypoint pull the AI back into the opponent's side.
+    if (car.avoidActive ? fwd < 0.15 : fwd < 0.72) continue;
+    sawObstacle = true;
+    if (!car.avoidActive) {
+      car.avoidActive = true;
+      car.avoidSide = Math.sign(odx * -hdY + ody * hdX) ||
+                      (car.lineBias >= 0 ? 1 : -1);              // dead-center tiebreak
+    }
+    avoidBias -= car.avoidSide * 0.55 * (1 - od / 160);          // steer to the other side
+    // Boxed behind something much slower: lift early to its pace + margin and use
+    // the swerve to pass, instead of plowing in at full speed.
+    if (od < 110 && fwd > 0.85) boxedCap = Math.max(120, other.speed + 60);
+  }
+  if (!sawObstacle) car.avoidActive = false;                     // cleared — release side
+  avoidBias = Math.max(-0.6, Math.min(0.6, avoidBias));
+
+  // W3-T1: defensive one-move block — when the player closes in from behind, a
+  // defensive rival covers the player's side once (2s move, 6s cooldown, F1 style).
+  const nowMs = performance.now();
+  if (pers.style === 'defensive' && cars[0] && !cars[0].finished) {
+    const pdx = cars[0].x - car.x, pdy = cars[0].y - car.y;
+    if (pdx * pdx + pdy * pdy < 80 * 80 && (pdx * hdX + pdy * hdY) < 0 && nowMs > car.defendCdUntil) {
+      car.defendUntil   = nowMs + 2000;
+      car.defendCdUntil = nowMs + 6000;
+      car.defendSide    = Math.sign(pdx * -hdY + pdy * hdX) || 1; // cover the player's side
+    }
+  }
+  const blockOffset = nowMs < car.defendUntil ? car.defendSide * 14 : 0;
+
   // Navigate using fine-grained AI_WAYPOINTS (stays on road) — per-car wpIdx
   const wp = AI_WAYPOINTS[car.wpIdx];
   // Apply lineMult as a lateral offset toward the apex (aggressive) or wider (defensive),
-  // plus the per-lap lineBias (AI-02). lineMult < 1 → tighter; > 1 → wider.
-  const lineOffset = (1.0 - pers.lineMult) * 6 + car.lineBias; // world-space px
+  // plus the per-lap lineBias (AI-02) and the defensive block shift (W3-T1).
+  const lineOffset = (1.0 - pers.lineMult) * 6 + car.lineBias + blockOffset;
   const wpDx = wp[0] - car.x + lineOffset * Math.cos(car.angle + Math.PI / 2);
   const wpDy = wp[1] - car.y + lineOffset * Math.sin(car.angle + Math.PI / 2);
 
@@ -1127,7 +1182,7 @@ function updateAI(car, dt) {
     car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length;
   }
 
-  const targetAngle = Math.atan2(wpDy, wpDx);
+  const targetAngle = Math.atan2(wpDy, wpDx) + avoidBias; // W3-T1: swerve around traffic
   let diff = targetAngle - car.angle;
   while (diff >  Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
@@ -1138,6 +1193,32 @@ function updateAI(car, dt) {
   const noise    = (Math.random() - 0.5) * noiseAmp * dt;
   car.angle += Math.sign(diff) * Math.min(absDiff, maxTurn) + noise;
 
+  // W3-T2/T3: rubber-band and pressure, both from the continuous-progress gap.
+  // gapSec > 0 = this AI leads the player.
+  let rubber = 1.0;
+  if (cars[0] && !cars[0].finished && cars[0] !== car) {
+    const gapSec = (car.progress - cars[0].progress) / Math.max(cars[0].speed, 100);
+    // Rubber-band: far ahead → ease off slightly; far behind → push. Keeps races alive
+    // without erasing the skill gap (boost capped at an effective skill of 1.02).
+    if (gapSec > 4) rubber = 0.96;
+    else if (gapSec < -4) rubber = Math.min(1.05, 1.02 / (skill * pers.speedMult));
+    // Pressure mistakes: the player glued within 1s behind for 3s+ forces errors —
+    // a steering flinch + lift that opens a real overtaking window.
+    if (gapSec > 0 && gapSec < 1.0) {
+      car.pressureTime += dt;
+      const mistakeRate = 0.25 * (pers.style === 'aggressive' ? 2 : 1); // per second
+      if (car.pressureTime > 3 && Math.random() < mistakeRate * dt) {
+        car.angle += (Math.random() - 0.5) * 0.5;
+        car.speed *= 0.85;
+        car.pressureTime = 0;
+        car.mistakeCount++;
+      }
+    } else {
+      car.pressureTime = Math.max(0, car.pressureTime - dt);
+    }
+  }
+  car.rubber = rubber;
+
   // AI-01: real corner braking. The sharper the required turn, the harder the AI brakes.
   // brakeStrength 0→1 across a 0.5–1.4 rad steering demand, scaled by personality brakeMult.
   const braking       = absDiff > 0.5;
@@ -1146,8 +1227,9 @@ function updateAI(car, dt) {
   // DRS boost (DRS-01): the AI activates DRS automatically when close behind (see racing loop)
   const drsActive     = performance.now() < car.drsUntil;
   const drsMul        = drsActive ? DRS_BOOST : 1.0;
-  // Apply personality speedMult and braking cornering cap to the AI's effective top speed
-  const aiMaxSpd = MAX_SPD_ON * skill * pers.speedMult * lapBonus * drsMul * (1 - 0.42 * brakeStrength);
+  // Apply personality speedMult, rubber-band, traffic cap and cornering cap
+  const aiMaxSpd = Math.min(boxedCap,
+    MAX_SPD_ON * skill * pers.speedMult * lapBonus * drsMul * rubber * (1 - 0.42 * brakeStrength));
   const onTrack  = isOnTrack(car.x, car.y);
   const maxSpd   = onTrack ? aiMaxSpd : MAX_SPD_OFF;
   car.speed += AUTO_ACCEL * dt;

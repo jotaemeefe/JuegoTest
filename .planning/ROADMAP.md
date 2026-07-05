@@ -131,7 +131,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 03b-03-PLAN.md — AI racecraft: avoidance, defensive/aggressive moves, rubber-band, pressure mistakes
+- [x] 03b-03-PLAN.md — AI racecraft: sticky-side avoidance with boxed lift, defensive one-move block, rubber-band, pressure mistakes; per-car collision escape sides (6/6 checks + W1/W2 regressions — see 03b-03-SUMMARY.md)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -166,7 +166,7 @@ Plans:
 | 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
 | 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
 | 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
-| 3b. Gameplay Refactor | 2/4 | In Progress | - |
+| 3b. Gameplay Refactor | 3/4 | In Progress | - |
 
 ---
 
