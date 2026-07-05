@@ -9,10 +9,11 @@
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
+- [x] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
 - [x] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
-- [ ] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
-- [ ] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects, and UI redesign.
+- [x] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
+- [x] **Phase 2c: Gameplay Fix** — Post-2b course correction driven by automated visual testing: Monaco barrier walls, collision-sticking fix, non-crossing circuit redesign (57-pt spine), physics slowed for control (MAX_SPD 650→450, TURN_RATE 3.8→4.5), wrong-way detector, and **VS CPU reduced from 4 cars to 1v1** (player + one selected rival). AI braking for corners landed here early.
+- [x] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost, lap-time feedback, and an Alpine blue+pink UI redesign. Adapted to the 1v1 reality: one rival with a skill-derived personality.
 
 ---
 
@@ -101,7 +102,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02b-04-PLAN.md — Integration verification: automated checks + human visual checkpoint (camera rotation, Loews playability, AI circulation, minimap, zero console errors)
+- [x] 02b-04-PLAN.md — Integration verification: subsumed by the Phase 2c automated visual-testing pass (Puppeteer, 16 screenshots) which surfaced the P0 playability bugs fixed in 2c. See `.planning/phases/02c-gameplay-fix/02c-VISUAL-TESTING.md`.
 
 ### Phase 3: AI, Audio & Polish
 
@@ -129,8 +130,9 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 4/4 | Complete | 2026-06-26 |
 | 2. Monaco + 4 Cars | 4/4 | Complete   | 2026-06-28 |
-| 2b. Monaco Overhaul | 3/4 | In Progress | - |
-| 3. AI, Audio & Polish | 0/? | Not started | - |
+| 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
+| 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
+| 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
 
 ---
 

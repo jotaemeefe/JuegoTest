@@ -2,26 +2,26 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 3
+current_plan: 1
 status: in_progress
-stopped_at: Completed 02b-03-PLAN.md — rotating follow camera transform in loop(), drawMinimap() added, drawOffTrackVignette() updated to screen-space center
-last_updated: "2026-06-29T20:40:00.000Z"
+stopped_at: Phase 3 (AI, Audio & Polish) implemented, verified in headless Chromium, and shipped. v2.0 milestone content complete.
+last_updated: "2026-07-04T12:00:00.000Z"
 progress:
   total_phases: 18
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 11
-  percent: 16
+  completed_phases: 5
+  total_plans: 14
+  completed_plans: 14
+  percent: 28
 ---
 
 # Project State
 
 ## Current Status
 
-**Active phase:** Phase 2-B — Monaco Gameplay Overhaul (IN PROGRESS)
-**Current plan:** 3 of 5 (02b-03 complete)
-**Last action:** Completed 02b-03 — rotating follow camera in loop(): ctx.save/translate(240,380)/rotate(-angle-PI/2)/translate(-car.x,-car.y) in all three phases. drawMinimap() added (100x120px top-right). drawOffTrackVignette() updated to screen-space center (240,380). All screen-space overlays moved after ctx.restore().
-**Resumed:** 2026-06-29
+**Active phase:** Phase 3 — AI, Audio & Polish (COMPLETE)
+**Current plan:** 03-PLAN.md complete (see 03-SUMMARY.md)
+**Last action:** Implemented and shipped Phase 3 — AI braking/personalities/line variation, background music + tunnel muffle + overtake/DRS SFX, VFX (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost system, lap-time delta feedback, and the Alpine blue+pink UI-07 redesign. Verified in headless Chromium with zero JS runtime errors.
+**Resumed:** 2026-07-04
 
 ## Project Reference
 
@@ -36,7 +36,9 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 |-------|------|------|--------|
 | 1 | Foundation | Game runs cleanly with no known bugs, expanded keyboard controls, correct 2026 grid, and responsive layout on any device | COMPLETE |
 | 2 | Monaco + 4 Cars | Races take place on Monaco circuit with 4 cars on track simultaneously — player plus 3 AI opponents with distinct personalities | COMPLETE |
-| 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage | ○ Pending |
+| 2b | Monaco Overhaul | Rotating follow camera (car points up), Monaco at 3.5x in 1600x2000 world space, minimap, physics re-tuned | COMPLETE |
+| 2c | Gameplay Fix | Non-crossing circuit redesign, Monaco walls, collision fix, wrong-way detector, physics slowed for control, VS CPU → 1v1 | COMPLETE |
+| 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage, DRS adds tactics | COMPLETE |
 
 ## Performance Metrics
 
@@ -100,6 +102,19 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 - Net.destroy() moved before modal.hidden = false in onDisconnect() — peer torn down before 3s UI delay
 - navigator.clipboard && guard used before writeText() to handle file:// context without silent failure
 
+### Phase 2c Pivot Decisions (2026-07-02)
+
+- Monaco in 2D self-crosses (it's a 3D circuit) → ROAD_SPINE redesigned to a **non-crossing** 57-pt layout with guaranteed separation (Beau Rivage vs Swimming Pool 296px; main straight y=1500 vs return straight 245px) — COMPLETED in 391a1aa
+- AI_WAYPOINTS grown to 55 pts following the non-crossing layout — COMPLETED in 391a1aa
+- CPS: META y=1500 (500,1500), Casino/Mirabeau (950,1005), Loews apex (528,602), Tunnel mid (1190,682); START grid at y≈1500 — COMPLETED in 391a1aa
+- **VS CPU reduced from 4 cars to 1v1** (player + one selected rival, personality=consistent). Multiplayer also 2 cars. cars[]/collision code unchanged, just seeded with 2 — COMPLETED in f94e7a5
+- Physics slowed for control: MAX_SPD_ON 650→450, MAX_SPD_OFF→175, AUTO_ACCEL 550→400, BRAKE_FORCE 1200→900, TURN_RATE 3.8→4.5 (min turn radius 171px→100px, Loews negotiable) — COMPLETED in f94e7a5
+- Monaco barrier walls: nearestSpinePoint() snaps off-track cars to 88% ROAD_HALF_W and cuts speed — walls ARE the circuit (no run-off) — COMPLETED in c92c09b/02c
+- Collision sticking fixed: separation 0.55→1.02, restitution 0.35→0.65 — COMPLETED in c92c09b/02c
+- Wrong-way detector: wrongWayTimer caps player speed to 100px/s + "⚠ VUELTA INCORRECTA ⚠" overlay when heading opposes spine dir — COMPLETED in c92c09b/02c
+- Multiplayer pos bounds widened to x<1700 / y<2100 for the full world — COMPLETED in c92c09b/02c
+- AI corner-braking landed early (Phase 3 AI-01 scope): braking when absDiff>0.65 → BRAKE_FORCE×brakeMult, speed capped 60% — present in current code
+
 ### Known Constraints
 
 - Vanilla JS only — no bundler, no npm, no frameworks
@@ -135,13 +150,17 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Session Continuity
 
-**Last session:** 2026-06-29
-**Stopped at:** Completed 02b-03-PLAN.md — rotating follow camera active. Player car always points up on screen.
-**Resume file:** None — continue Phase 2-B with 02b-04
+**Last session:** 2026-07-04
+**Stopped at:** Phase 3 shipped. All v2.0 content phases (1, 2, 2b, 2c, 3) COMPLETE.
+**Resume file:** None — v2.0 milestone content is done.
 
 ## Resume Instructions
 
-02b-03 complete. Rotating follow camera is active in all three loop() phases. drawMinimap() renders ROAD_SPINE outline and car dots. drawOffTrackVignette() uses screen-space center. Next: execute 02b-04 — remaining Phase 2-B plans (physics tuning verification, AI waypoint validation, etc.).
+Phases 1, 2, 2b, 2c and 3 are all complete. The v2.0 game is a 1v1 Monaco race with a rotating
+follow camera, Monaco walls, AI that brakes for corners and has a skill-derived personality,
+background music, damage/overtake/DRS VFX+SFX, a DRS boost, lap-time delta feedback, and an
+Alpine blue+pink UI. Verified in headless Chromium with zero JS runtime errors. Next candidates:
+a human UAT pass on desktop+mobile, or begin Release 3 (Championship Mode) per the ROADMAP.
 
 ---
 *State initialized: 2026-06-26*
