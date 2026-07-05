@@ -212,6 +212,34 @@ h2::after {
 /* ── Game screen ──────────────────────────────────────────── */
 #screen-game { gap: 0; padding: 0; }
 
+/* Mobile fit: HUD + canvas + touch controls must all fit the visible viewport.
+   The canvas letterboxes inside the remaining space (its 480x640 backing store
+   scales down preserving aspect); the buttons never fall off-screen. */
+@media (max-width: 520px), (max-height: 780px) {
+  body:has(#screen-game.active) { padding: 0; align-items: stretch; }
+  body:has(#screen-game.active) .app { width: 100%; }
+  #screen-game.active {
+    height: 100dvh;
+    flex-direction: column;
+  }
+  .game-hud { flex-shrink: 0; }
+  .game-canvas-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #050a1a;
+  }
+  .game-canvas-wrapper canvas {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .touch-controls { flex-shrink: 0; }
+}
+
 .game-hud {
   display: flex;
   width: 100%;
