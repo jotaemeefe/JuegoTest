@@ -47,11 +47,11 @@ The game loop branches on `phase`:
 
 All cars use the same model in `updateCar()`: constant auto-acceleration (`AUTO_ACCEL`), proportional friction (`FRICTION_K × speed`), capped at `MAX_SPD_ON` / `MAX_SPD_OFF` depending on track position. Braking applies `BRAKE_FORCE`. Steering is `TURN_RATE × speed_factor`.
 
-Monaco has no run-off — the walls *are* the circuit. After moving a car, if it lands off-track, `nearestSpinePoint()` snaps it back to the track edge (88% of `ROAD_HALF_W`) and cuts its speed. A wrong-way detector (`wrongWayTimer`) caps the player's speed and shows a "⚠ VUELTA INCORRECTA ⚠" overlay when heading opposes the nearest spine direction.
+Movement runs through `moveCar()` (shared by player and AI): the velocity direction (`car.velAngle`) lags the heading at `GRIP_ON`/`GRIP_OFF` rad/s, producing a subtle micro-drift that scrubs a little speed. Monaco has no run-off — the walls *are* the circuit. Wall contact goes through `applyWallContact()`: shallow contact grinds along the barrier (heading peels toward the track tangent, light speed scrub); a square hit (> ~57° into the wall) is a one-time crash penalty that shakes the screen and adds damage. Car-car contact (`resolveCarCollision`) is arcade bump-and-run: 50/50 separation plus tangential stagger and heading nudges so cars slide around each other instead of sticking; grazes under 60 px/s closing speed are free. A wrong-way detector (`wrongWayTimer`) caps the player's speed and shows a "⚠ VUELTA INCORRECTA ⚠" overlay when heading opposes the nearest spine direction.
 
 ### Camera
 
-The camera is a rotating follow camera (Micro Machines style): the world is drawn with `ctx.translate(240,380) / rotate(-car.angle - PI/2) / translate(-car.x,-car.y)` so the player car always points UP on screen. All HUD/overlay elements (countdown, win text, damage bar, off-track vignette, wrong-way warning, minimap) are drawn in screen space *after* `ctx.restore()` so they never rotate. `drawMinimap()` (top-right) shows the `ROAD_SPINE` outline and live car dots.
+Translate-only follow camera (north-up, no rotation): the world is drawn with `ctx.translate(240,380) / translate(-camX,-camY)`, where `camX/camY` lerp toward the player car with a speed-based lookahead along `velAngle` (`updateCamera()`). All HUD/overlay elements (countdown, win text, damage bar, vignette, wrong-way warning, minimap) are drawn in screen space *after* `ctx.restore()`. `drawMinimap()` (top-right) shows the `ROAD_SPINE` outline and live car dots.
 
 ### AI
 

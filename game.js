@@ -300,6 +300,8 @@ function makeCar(idx) {
     prevY: s.y,
     startCrossed: false, // grid sits behind the META line; first crossing arms lap 1
     progress: 0,       // continuous race progress, cached once per frame (R3B-02)
+    velAngle: s.a,     // velocity direction — lags heading for micro-drift (R3B-06)
+    wallContact: false, // true while grinding the barrier (R3B-05)
   };
 }
 
@@ -344,6 +346,10 @@ let pendingRank       = null; // candidate new rank awaiting confirmation
 let pendingRankSince  = 0;
 let lastPassMsgAt     = -Infinity;
 let lastLostMsgAt     = -Infinity;
+
+// Smoothed follow camera (R3B W2-T4): lerps toward the car with speed lookahead so
+// the world stops twitching 1:1 with every input.
+let camX = 0, camY = 0, camReady = false;
 
 // ── Network (PeerJS wrapper) ───────────────────────────────────────────────────
 const Net = (() => {
@@ -865,23 +871,98 @@ function crossedFinish(car) {
   return Math.abs(yCross - 1500) <= ROAD_HALF_W;
 }
 
+// ── Movement integration (R3B-05/06) ──────────────────────────────────────────
+const GRIP_ON  = 34;  // rad/s — velocity direction converges to heading (micro-drift)
+const GRIP_OFF = 10;  // off-track the car slides far more
+
+// R3B-05: Monaco wall contact — grind along the barrier instead of a flat 78% stop.
+// Shallow contact: the car peels along the wall scrubbing a little speed. A square
+// hit (> ~57° into the wall) is a real crash: one-time heavy penalty on the first
+// contact frame (returned as true so callers can shake/damage), then sustained scrub.
+function applyWallContact(car, dt) {
+  if (isOnTrack(car.x, car.y)) { car.wallContact = false; return false; }
+  const near = nearestSpinePoint(car.x, car.y);
+  if (near.dist > 0) {
+    const f = (ROAD_HALF_W * 0.88) / near.dist;
+    car.x = near.x + (car.x - near.x) * f;
+    car.y = near.y + (car.y - near.y) * f;
+  }
+  const alongT = Math.cos(car.angle) * near.dirX + Math.sin(car.angle) * near.dirY;
+  const hard = Math.abs(alongT) < 0.55;
+  let freshHard = false;
+  if (hard && !car.wallContact) {
+    car.speed *= 0.35;                                        // crash: one-time penalty
+    freshHard = true;
+  } else {
+    car.speed *= Math.max(0, 1 - (hard ? 2.5 : 0.45) * dt);   // grind: gentle scrub
+  }
+  // Peel the heading toward the wall tangent so the car slides along, not into
+  const tSign = alongT >= 0 ? 1 : -1;
+  const tAngle = Math.atan2(near.dirY * tSign, near.dirX * tSign);
+  let d = tAngle - car.angle;
+  while (d >  Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  car.angle += Math.max(-2.4 * dt, Math.min(2.4 * dt, d));
+  car.velAngle = car.angle; // velocity re-aligns against the barrier
+  car.wallContact = true;
+  return freshHard;
+}
+
+// Shared move step for player and AI: micro-drift integration + wall contact.
+// Returns true on a fresh hard wall hit.
+function moveCar(car, dt) {
+  car.prevX = car.x; car.prevY = car.y; // finish-crossing test reads this (R3B-01)
+  // R3B-06: velocity direction lags heading — the rear steps out slightly in fast
+  // steering and drifting scrubs a little speed. Controls unchanged.
+  let dv = car.angle - car.velAngle;
+  while (dv >  Math.PI) dv -= Math.PI * 2;
+  while (dv < -Math.PI) dv += Math.PI * 2;
+  const grip = isOnTrack(car.x, car.y) ? GRIP_ON : GRIP_OFF;
+  car.velAngle += dv * Math.min(1, grip * dt);
+  car.speed *= Math.max(0, 1 - Math.abs(dv) * 2.2 * dt);
+  car.x += Math.cos(car.velAngle) * car.speed * dt;
+  car.y += Math.sin(car.velAngle) * car.speed * dt;
+  return applyWallContact(car, dt);
+}
+
+// R3B-03: arcade bump-and-run. Cars deflect and slide around each other — the old
+// resolver only cut scalar speed, so AUTO_ACCEL rebuilt the same head-to-tail ram
+// every frame and the cars stayed glued ("te trabás con el otro jugador").
+// Returns false when not touching, else { impact, aVn, bVn } (impact = closing px/s).
 function resolveCarCollision(a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const dist2 = dx * dx + dy * dy;
   const minDist = CAR_RADIUS * 2;
   if (dist2 >= minDist * minDist || dist2 === 0) return false;
   const dist = Math.sqrt(dist2);
-  const nx = dx / dist, ny = dy / dist;
-  const overlap = (minDist - dist) * 1.02; // full separation + 2% buffer prevents re-sticking
-  a.x -= nx * overlap; a.y -= ny * overlap;
-  b.x += nx * overlap; b.y += ny * overlap;
+  const nx = dx / dist, ny = dy / dist;   // contact normal a→b
+  const tx = -ny, ty = nx;                // contact tangent
+
+  // 50/50 separation (was full overlap on EACH car — visible position pops)
+  const sep = (minDist - dist) * 0.51;
+  a.x -= nx * sep; a.y -= ny * sep;
+  b.x += nx * sep; b.y += ny * sep;
+
   const aVn = (Math.cos(a.angle) * nx + Math.sin(a.angle) * ny) * a.speed;
   const bVn = (Math.cos(b.angle) * nx + Math.sin(b.angle) * ny) * b.speed;
-  if (bVn - aVn >= 0) return true;
+  if (bVn - aVn >= 0) return { impact: 0, aVn, bVn }; // already separating
   const relV = aVn - bVn;
-  a.speed = Math.max(0, a.speed - relV * 0.65); // elastic restitution — cars bounce apart
-  b.speed = Math.max(0, b.speed - relV * 0.65);
-  return true;
+
+  // Soften only the closing momentum — the race keeps flowing
+  a.speed = Math.max(0, a.speed - relV * 0.45);
+  b.speed = Math.max(0, b.speed - relV * 0.45);
+
+  // Anti-stick: stagger the cars across the contact tangent and nudge their headings
+  // apart (each car toward the side it already leans to), so the ram-loop cannot
+  // re-form. Repeated closing contact accumulates nudges until the cars diverge.
+  const aSide = Math.sign(Math.cos(a.angle) * tx + Math.sin(a.angle) * ty) || 1;
+  const lateral = Math.min(8, 2 + relV * 0.02);
+  a.x += tx * aSide * lateral; a.y += ty * aSide * lateral;
+  b.x -= tx * aSide * lateral; b.y -= ty * aSide * lateral;
+  const nudge = Math.min(0.22, 0.08 + relV * 0.0004);
+  a.angle += aSide * nudge;   a.velAngle += aSide * nudge;
+  b.angle -= aSide * nudge;   b.velAngle -= aSide * nudge;
+  return { impact: relV, aVn, bVn };
 }
 
 // ── Classification / DRS helpers ──────────────────────────────────────────────
@@ -1007,19 +1088,10 @@ function updateCar(car, dt, damage = 0) {
   if (car.isPlayer && keys.left)  car.angle -= TURN_RATE * turnFactor * dt;
   if (car.isPlayer && keys.right) car.angle += TURN_RATE * turnFactor * dt;
 
-  // Move — Monaco barrier walls: snap to track edge on boundary contact
-  car.prevX = car.x; car.prevY = car.y; // finish-crossing test reads this (R3B-01)
-  const nextX = car.x + Math.cos(car.angle) * car.speed * dt;
-  const nextY = car.y + Math.sin(car.angle) * car.speed * dt;
-  car.x = nextX; car.y = nextY;
-  if (!isOnTrack(car.x, car.y)) {
-    const near = nearestSpinePoint(car.x, car.y);
-    if (near.dist > 0) {
-      const f = (ROAD_HALF_W * 0.88) / near.dist;
-      car.x = near.x + (car.x - near.x) * f;
-      car.y = near.y + (car.y - near.y) * f;
-    }
-    car.speed *= 0.22; // wall impact — significant speed loss
+  // Move with micro-drift; Monaco walls grind/crash via applyWallContact (R3B-05/06)
+  if (moveCar(car, dt) && car.isPlayer) {
+    car.damage = Math.min(100, car.damage + 1.5); // hard wall hit
+    triggerShake();
   }
 }
 
@@ -1084,9 +1156,7 @@ function updateAI(car, dt) {
   if (braking) car.speed -= BRAKE_FORCE * 0.7 * brakeStrength * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
-  car.prevX = car.x; car.prevY = car.y; // finish-crossing test reads this (R3B-01)
-  car.x += Math.cos(car.angle) * car.speed * dt;
-  car.y += Math.sin(car.angle) * car.speed * dt;
+  moveCar(car, dt); // shared micro-drift + wall handling (R3B-05/06)
 }
 
 // ── HUD update ────────────────────────────────────────────────────────────────
@@ -1250,6 +1320,18 @@ function updateDrsUI(available, active) {
   drsBtn.textContent = active ? 'DRS ●' : 'DRS';
 }
 
+// ── Camera (R3B W2-T4) ─────────────────────────────────────────────────────────
+function updateCamera(dt) {
+  if (!cars[0]) return;
+  const look = Math.min(70, cars[0].speed * 0.14); // look ahead along the velocity
+  const tx = cars[0].x + Math.cos(cars[0].velAngle) * look;
+  const ty = cars[0].y + Math.sin(cars[0].velAngle) * look;
+  if (!camReady) { camX = tx; camY = ty; camReady = true; return; }
+  const k = Math.min(1, 7 * dt);
+  camX += (tx - camX) * k;
+  camY += (ty - camY) * k;
+}
+
 // ── Minimap ────────────────────────────────────────────────────────────────────
 function drawMinimap() {
   const MAP_W = 100, MAP_H = 120, PAD = 6;
@@ -1374,37 +1456,22 @@ function loop(ts) {
         checkCheckpoints(car);
       });
 
-      // Car-car collision: all 6 pairs among 4 cars (CARS-03)
+      // Car-car collision (R3B-03): bump-and-run — grazes are free, real hits cost
       PAIRS.forEach(([i, j]) => {
         const a = cars[i], b = cars[j];
         if (!a || !b || a.finished || b.finished) return;
-        // Compute approach velocity before resolving (used for damage scaling)
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nx = dx / dist, ny = dy / dist;
-        const vA = Math.cos(a.angle) * a.speed * nx + Math.sin(a.angle) * a.speed * ny;
-        const vB = Math.cos(b.angle) * b.speed * nx + Math.sin(b.angle) * b.speed * ny;
-        if (resolveCarCollision(a, b)) {
-          const relV = Math.abs(vA - vB);
-          const baseDmg = Math.min(6, 1 + relV * 0.02);
-          // Only player (cars[0]) accumulates damage for HUD display
-          if (i === 0) {
-            // cars[j] hit cars[0]: scale damage by AI's damageMult (aggressive hits harder)
-            const aiDamageMult = (b.personality ? b.personality.damageMult : 1.0);
-            const playerIsAggressor = vA > vB + 5;
-            cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
-            playCollisionSound();
-          } else if (j === 0) {
-            // cars[i] hit cars[0]: scale damage by AI's damageMult
-            const aiDamageMult = (a.personality ? a.personality.damageMult : 1.0);
-            const playerIsAggressor = vB > vA + 5;
-            cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
-            playCollisionSound();
-          }
-          // VFX-02: hard impacts involving the player shake the screen
-          if ((i === 0 || j === 0) && Math.abs(vA - vB) > 150) triggerShake();
-          // AI vs AI collisions: play sound only if close to player (optional ambience)
-          // No damage accumulation for AI-vs-AI pairs
+        const hit = resolveCarCollision(a, b);
+        if (!hit || !(i === 0 || j === 0)) return;
+        // Grazing contact (closing speed <= 60 px/s) costs nothing — racing wheel-to-
+        // wheel must be viable. Only the player accumulates damage for the HUD.
+        if (hit.impact > 60) {
+          const other = i === 0 ? b : a;
+          const playerIsAggressor = i === 0 ? hit.aVn > hit.bVn + 5 : hit.bVn > hit.aVn + 5;
+          const baseDmg = Math.min(6, 1 + hit.impact * 0.02);
+          const aiDamageMult = other.personality ? other.personality.damageMult : 1.0;
+          cars[0].damage = Math.min(100, cars[0].damage + (playerIsAggressor ? baseDmg : baseDmg * 0.15) * aiDamageMult);
+          playCollisionSound();
+          if (hit.impact > 150) triggerShake(); // VFX-02: hard impact
         }
       });
     } else {
@@ -1522,9 +1589,10 @@ function loop(ts) {
     }
 
     // === WORLD-SPACE RENDER (racing) ===
+    updateCamera(dt);
     ctx.save();
     ctx.translate(240, 380);
-    ctx.translate(-cars[0].x, -cars[0].y);
+    ctx.translate(-camX, -camY);
 
     drawTrack();
 
@@ -1582,7 +1650,7 @@ function loop(ts) {
     // === WORLD-SPACE RENDER (done) ===
     ctx.save();
     ctx.translate(240, 380);
-    ctx.translate(-cars[0].x, -cars[0].y);
+    ctx.translate(-camX, -camY); // camera freezes at its last racing position
 
     drawTrack();
 
@@ -1603,9 +1671,10 @@ function loop(ts) {
 
   // === WORLD-SPACE RENDER (countdown — placed after phase branches to share structure) ===
   if (phase === 'countdown') {
+    updateCamera(dt); // cars are static — snaps to the grid position
     ctx.save();
     ctx.translate(240, 380);
-    ctx.translate(-cars[0].x, -cars[0].y);
+    ctx.translate(-camX, -camY);
 
     drawTrack();
 
@@ -1762,6 +1831,7 @@ function resetGame() {
   pendingRank        = null;
   lastPassMsgAt      = -Infinity;
   lastLostMsgAt      = -Infinity;
+  camReady           = false;     // camera re-centers on the grid (R3B W2-T4)
   stopBrakeSound();
   keys.left = false; keys.right = false; keys.down = false;
 }
