@@ -14,6 +14,7 @@
 - [x] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
 - [x] **Phase 2c: Gameplay Fix** — Post-2b course correction driven by automated visual testing: Monaco barrier walls, collision-sticking fix, non-crossing circuit redesign (57-pt spine), physics slowed for control (MAX_SPD 650→450, TURN_RATE 3.8→4.5), wrong-way detector, and **VS CPU reduced from 4 cars to 1v1** (player + one selected rival). AI braking for corners landed here early.
 - [x] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost, lap-time feedback, and an Alpine blue+pink UI redesign. Adapted to the 1v1 reality: one rival with a skill-derived personality.
+- [ ] **Phase 3b: Gameplay Refactor** — Correction phase from user playtest of the Phase 3 build: real finish-line crossing (win was declared 200px early), continuous track-progress metric replacing discrete checkpoint ranking (fixes random overtake messages and fake gaps), anti-stick collision physics with tangential slide, wall grinding instead of snap-stop, lateral grip/micro-drift, AI racecraft (avoidance, rubber-band, pressure mistakes), and a Monaco presentation pass (environment blocks, skid marks, sparks).
 
 ---
 
@@ -104,6 +105,38 @@ Plans:
 
 - [x] 02b-04-PLAN.md — Integration verification: subsumed by the Phase 2c automated visual-testing pass (Puppeteer, 16 screenshots) which surfaced the P0 playability bugs fixed in 2c. See `.planning/phases/02c-gameplay-fix/02c-VISUAL-TESTING.md`.
 
+### Phase 3b: Gameplay Refactor
+
+**Goal:** The game *cierra*: racing contact feels physical (bump and slide, never glue), the finish line is the finish line, race feedback matches what the player sees, and Monaco stops feeling empty.
+**Depends on:** Phase 3
+**Trigger:** User playtest feedback on PR #3 (2026-07-05). Root causes confirmed in `.planning/phases/03b-gameplay-refactor/03b-RESEARCH.md`.
+**Requirements:** R3B-01 … R3B-10 (see wave plans)
+**Success Criteria:**
+
+1. The win overlay never appears before the car visually crosses the META stripe (segment-crossing test, verified by automated race).
+2. Ramming the rival head-to-tail for 5 seconds always ends with the cars sliding apart — never pinned in place; a glancing wall touch preserves ≥60% of speed (grind, not stop).
+3. ¡LO PASÉ!/¡TE PASARON! fire exactly once per actual pass (progress-ordering flip stable ≥0.6s), never during side-by-side jitter, and the gap indicator shows real seconds derived from track progress.
+4. The AI visibly avoids the player instead of driving through them; defensive rivals block, aggressive ones attack; races stay within ±8s after 3 laps (rubber-band).
+5. Monaco has identity again: harbour, buildings, tunnel roof, skid marks and wall sparks — at 60fps with zero console errors.
+
+**Plans:** 4 plans in 4 sequential waves
+Plans:
+**Wave 1**
+
+- [ ] 03b-01-PLAN.md — trackProgress() primitive, real finish-line crossing, gate-radius fix, honest overtake events + real gaps
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 03b-02-PLAN.md — Collision refactor (tangential slide, 50/50 separation), wall grinding, lateral grip/micro-drift, camera smoothing
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 03b-03-PLAN.md — AI racecraft: avoidance, defensive/aggressive moves, rubber-band, pressure mistakes
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 03b-04-PLAN.md — Presentation: Monaco environment blocks, skid marks, wall sparks, scrape SFX, HUD micro-polish
+
 ### Phase 3: AI, Audio & Polish
 
 **Goal:** Racing feels tense and dramatic: AI opponents brake for corners and have distinct driving personalities, background music builds atmosphere, and visual effects celebrate overtakes and communicate damage.
@@ -133,6 +166,7 @@ Plans:
 | 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
 | 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
 | 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
+| 3b. Gameplay Refactor | 0/4 | Planned | - |
 
 ---
 

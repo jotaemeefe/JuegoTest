@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: milestone
 current_plan: 1
 status: in_progress
-stopped_at: Phase 3 (AI, Audio & Polish) implemented, verified in headless Chromium, and shipped. v2.0 milestone content complete.
-last_updated: "2026-07-04T12:00:00.000Z"
+stopped_at: Phase 3b (Gameplay Refactor) PLANNED from user playtest feedback — root causes confirmed (early finish, collision ram-loop, discrete-rank overtake spam). 4 wave plans written, ready to execute 03b-01.
+last_updated: "2026-07-05T00:00:00.000Z"
 progress:
   total_phases: 18
   completed_phases: 5
@@ -18,10 +18,10 @@ progress:
 
 ## Current Status
 
-**Active phase:** Phase 3 — AI, Audio & Polish (COMPLETE)
-**Current plan:** 03-PLAN.md complete (see 03-SUMMARY.md)
-**Last action:** Implemented and shipped Phase 3 — AI braking/personalities/line variation, background music + tunnel muffle + overtake/DRS SFX, VFX (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost system, lap-time delta feedback, and the Alpine blue+pink UI-07 redesign. Verified in headless Chromium with zero JS runtime errors.
-**Resumed:** 2026-07-04
+**Active phase:** Phase 3b — Gameplay Refactor (PLANNED, not started)
+**Current plan:** 03b-01 next (of 4 waves)
+**Last action:** User playtested the Phase 3 build (PR #3) and reported: collision sticking with the rival, win declared before reaching the META, random ¡LO PASÉ! messages, overall "jugabilidad pésima". All three bugs root-caused and confirmed against the code (03b-RESEARCH.md). Wrote CONTEXT + 4 wave plans centered on one load-bearing refactor: continuous trackProgress() replacing discrete checkpoint-based rank/gap/finish.
+**Resumed:** 2026-07-05
 
 ## Project Reference
 
@@ -39,6 +39,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 2b | Monaco Overhaul | Rotating follow camera (car points up), Monaco at 3.5x in 1600x2000 world space, minimap, physics re-tuned | COMPLETE |
 | 2c | Gameplay Fix | Non-crossing circuit redesign, Monaco walls, collision fix, wrong-way detector, physics slowed for control, VS CPU → 1v1 | COMPLETE |
 | 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage, DRS adds tactics | COMPLETE |
+| 3b | Gameplay Refactor | The game *cierra*: real finish line, honest overtake events, contact that slides instead of sticking, walls you grind, AI you can battle, Monaco with identity | ► PLANNED |
 
 ## Performance Metrics
 
@@ -150,17 +151,18 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 ## Session Continuity
 
-**Last session:** 2026-07-04
-**Stopped at:** Phase 3 shipped. All v2.0 content phases (1, 2, 2b, 2c, 3) COMPLETE.
-**Resume file:** None — v2.0 milestone content is done.
+**Last session:** 2026-07-05
+**Stopped at:** Phase 3b planned (research + 4 wave plans). Implementation not started.
+**Resume file:** `.planning/phases/03b-gameplay-refactor/03b-01-PLAN.md`
 
 ## Resume Instructions
 
-Phases 1, 2, 2b, 2c and 3 are all complete. The v2.0 game is a 1v1 Monaco race with a rotating
-follow camera, Monaco walls, AI that brakes for corners and has a skill-derived personality,
-background music, damage/overtake/DRS VFX+SFX, a DRS boost, lap-time delta feedback, and an
-Alpine blue+pink UI. Verified in headless Chromium with zero JS runtime errors. Next candidates:
-a human UAT pass on desktop+mobile, or begin Release 3 (Championship Mode) per the ROADMAP.
+Execute Phase 3b waves in order — 03b-01 (trackProgress + real finish + honest overtakes) is
+the load-bearing wave and blocks the rest. Key confirmed bugs to validate against after each
+wave: (1) win must only trigger on actual META stripe crossing (was firing at x=300, stripe at
+x=500); (2) head-to-tail contact must resolve into a slide, never a pinned ram-loop; (3)
+overtake messages must fire once per real pass with 0.6s hysteresis. Root causes with code
+anchors: 03b-RESEARCH.md.
 
 ---
 *State initialized: 2026-06-26*
