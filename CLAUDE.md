@@ -45,17 +45,19 @@ The game loop branches on `phase`:
 
 ### Physics model
 
-All cars use the same model in `updateCar()`: constant auto-acceleration (`AUTO_ACCEL`), proportional friction (`FRICTION_K × speed`), capped at `MAX_SPD_ON` / `MAX_SPD_OFF` depending on track position. Braking applies `BRAKE_FORCE`. Steering is `TURN_RATE × speed_factor`.
+All cars use the same model in `updateCar()`/`updateAI()`: speed converges **exponentially toward the effective top speed** (`ACCEL_RATE = 2.0/s` approach model), so caps are REAL. ⚠️ History: the pre-03b-04 model (constant accel 400 − friction 1.1×v) had a terminal velocity of 364 px/s, *below* every cap — MAX_SPD_ON, DRS and AI pace multipliers were decorative. Braking applies `BRAKE_FORCE`. Steering is `TURN_RATE × speed_factor`.
+
+**NITRO** (arcade core loop, replaces DRS): `car.nitro` 0–100 fills by clean driving (+8/s), drifting (+25/s) and slipstreaming ≤2s behind the rival (+15/s); hold ↑/W/Shift or the on-screen button to burn it (needs ≥25 to ignite, drains 40/s, ×1.35 top speed, flames + speed lines). The AI earns and spends by the same rules (`earnNitro`/`spendNitro`), attacking in battle range but never while boxed in traffic.
 
 Movement runs through `moveCar()` (shared by player and AI): the velocity direction (`car.velAngle`) lags the heading at `GRIP_ON`/`GRIP_OFF` rad/s, producing a subtle micro-drift that scrubs a little speed. Monaco has no run-off — the walls *are* the circuit. Wall contact goes through `applyWallContact()`: shallow contact grinds along the barrier (heading peels toward the track tangent, light speed scrub); a square hit (> ~57° into the wall) is a one-time crash penalty that shakes the screen and adds damage. Car-car contact (`resolveCarCollision`) is arcade bump-and-run: 50/50 separation plus tangential stagger and heading nudges so cars slide around each other instead of sticking; grazes under 60 px/s closing speed are free. A wrong-way detector (`wrongWayTimer`) caps the player's speed and shows a "⚠ VUELTA INCORRECTA ⚠" overlay when heading opposes the nearest spine direction.
 
 ### Camera
 
-Translate-only follow camera (north-up, no rotation): the world is drawn with `ctx.translate(240,380) / translate(-camX,-camY)`, where `camX/camY` lerp toward the player car with a speed-based lookahead along `velAngle` (`updateCamera()`). All HUD/overlay elements (countdown, win text, damage bar, vignette, wrong-way warning, minimap) are drawn in screen space *after* `ctx.restore()`. `drawMinimap()` (top-right) shows the `ROAD_SPINE` outline and live car dots.
+Translate-only follow camera (north-up, no rotation): the world is drawn with `ctx.translate(240,380) / translate(-camX,-camY)`, where `camX/camY` lerp toward the player car with a speed-based lookahead along `velAngle` (`updateCamera()`). The static world (sea/harbour, city blocks, gardens, armco, layered tarmac, paint) renders once into an offscreen 1600×2000 canvas (`buildEnvCanvas()`); per-frame world render is one `drawImage` plus dynamics (skid marks, sparks, tunnel roof overlay, nitro flames). All HUD/overlay elements (countdown, win text, damage bar, vignette, wrong-way warning, minimap) are drawn in screen space *after* `ctx.restore()`. `drawMinimap()` (top-right) shows the `ROAD_SPINE` outline and live car dots.
 
 ### AI
 
-`updateAI()` steers each AI car toward waypoints in `AI_WAYPOINTS` (55-point Monaco line). Effective max speed is `MAX_SPD_ON × skill × personality.speedMult × lapBonus`. The AI **brakes for sharp corners**: when the steering angle to the next waypoint exceeds ~0.65 rad it applies `BRAKE_FORCE` (scaled by `personality.brakeMult`) and caps speed to 60%.
+`updateAI()` steers each AI car toward waypoints in `AI_WAYPOINTS` (55-point Monaco line). Effective max speed is `MAX_SPD_ON × AI_PACE(1.06) × skill × personality.speedMult × lapBonus × rubber × boost`, so ÉLITE rivals out-drag the player on straights (~11.5s laps). Racecraft: corner braking graded by steering demand; **predictive traffic avoidance** by time-to-contact (sticky swerve side, boxed lift + traffic braking — the AI never rams or wall-crashes in traffic); defensive one-move block; catch-up rubber (no leader-nerf); pressure mistakes are a visible lift + wide line, never a steering flinch.
 
 ### Multiplayer (PeerJS)
 
@@ -82,8 +84,10 @@ Tuning these changes game feel significantly. Values below are the current 1600�
 | Constant | Default | Effect |
 |----------|---------|--------|
 | `TURN_RATE` | 4.5 rad/s | Steering sharpness |
-| `AUTO_ACCEL` | 400 px/s² | How quickly cars reach top speed |
-| `MAX_SPD_ON` | 450 px/s | Top speed on track |
+| `ACCEL_RATE` | 2.0 /s | Exponential approach to top speed (~90% in 1.15s) |
+| `MAX_SPD_ON` | 450 px/s | Top speed on track (really reached now) |
+| `NITRO_BOOST` | 1.35× | Top speed while burning nitro (607 px/s) |
+| `AI_PACE` | 1.06 | Global AI speed multiplier |
 | `MAX_SPD_OFF` | 175 px/s | Top speed off track |
 | `BRAKE_FORCE` | 900 px/s² | Braking deceleration |
 | `ROAD_HALF_W` | 80 px | Track half-width |

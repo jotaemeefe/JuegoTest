@@ -14,7 +14,7 @@
 - [x] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
 - [x] **Phase 2c: Gameplay Fix** — Post-2b course correction driven by automated visual testing: Monaco barrier walls, collision-sticking fix, non-crossing circuit redesign (57-pt spine), physics slowed for control (MAX_SPD 650→450, TURN_RATE 3.8→4.5), wrong-way detector, and **VS CPU reduced from 4 cars to 1v1** (player + one selected rival). AI braking for corners landed here early.
 - [x] **Phase 3: AI, Audio & Polish** — Improved AI with real braking and personalities, background music, audio enhancements, visual feedback effects (damage tint, impact shake, overtake flash, DRS speed lines), DRS boost, lap-time feedback, and an Alpine blue+pink UI redesign. Adapted to the 1v1 reality: one rival with a skill-derived personality.
-- [ ] **Phase 3b: Gameplay Refactor** — Correction phase from user playtest of the Phase 3 build: real finish-line crossing (win was declared 200px early), continuous track-progress metric replacing discrete checkpoint ranking (fixes random overtake messages and fake gaps), anti-stick collision physics with tangential slide, wall grinding instead of snap-stop, lateral grip/micro-drift, AI racecraft (avoidance, rubber-band, pressure mistakes), and a Monaco presentation pass (environment blocks, skid marks, sparks).
+- [x] **Phase 3b: Gameplay Refactor** — Correction phase from user playtest of the Phase 3 build: real finish-line crossing (win was declared 200px early), continuous track-progress metric replacing discrete checkpoint ranking (fixes random overtake messages and fake gaps), anti-stick collision physics with tangential slide, wall grinding instead of snap-stop, lateral grip/micro-drift, AI racecraft (avoidance, rubber-band, pressure mistakes), and a Monaco presentation pass (environment blocks, skid marks, sparks).
 
 ---
 
@@ -135,7 +135,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 03b-04-PLAN.md — Presentation: Monaco environment blocks, skid marks, wall sparks, scrape SFX, HUD micro-polish
+- [x] 03b-04-PLAN.md — ARCADE PIVOT: nitro replaces DRS, real speed caps (terminal-velocity bug found & fixed), fast+clean AI (TTC avoidance, traffic braking), full Monaco visual layer (10/10 checks + all regressions — see 03b-04-SUMMARY.md)
 
 ### Phase 3: AI, Audio & Polish
 
@@ -166,7 +166,7 @@ Plans:
 | 2b. Monaco Overhaul | 4/4 | Complete | 2026-06-29 |
 | 2c. Gameplay Fix | ad-hoc | Complete | 2026-07-02 |
 | 3. AI, Audio & Polish | 1/1 | Complete | 2026-07-04 |
-| 3b. Gameplay Refactor | 3/4 | In Progress | - |
+| 3b. Gameplay Refactor | 4/4 | Complete | 2026-07-05 |
 
 ---
 

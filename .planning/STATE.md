@@ -4,7 +4,7 @@ milestone: v2.0
 milestone_name: milestone
 current_plan: 1
 status: in_progress
-stopped_at: Phase 3b (Gameplay Refactor) PLANNED from user playtest feedback — root causes confirmed (early finish, collision ram-loop, discrete-rank overtake spam). 4 wave plans written, ready to execute 03b-01.
+stopped_at: Phase 3b COMPLETE (4/4 waves). W4 was the arcade pivot — NITRO replaces DRS, terminal-velocity bug fixed (caps are real now), AI fast+clean (11.2s ÉLITE laps, zero wall/traffic contact), Monaco visual layer. All suites green.
 last_updated: "2026-07-05T00:00:00.000Z"
 progress:
   total_phases: 18
@@ -18,8 +18,8 @@ progress:
 
 ## Current Status
 
-**Active phase:** Phase 3b — Gameplay Refactor (Waves 1-3 of 4 COMPLETE)
-**Current plan:** 03b-04 next (presentation)
+**Active phase:** Phase 3b — Gameplay Refactor (ALL 4 WAVES COMPLETE)
+**Current plan:** Phase 3b DONE — see 03b-04-SUMMARY.md (arcade pivot)
 **Last action:** Shipped 03b-02: bump-and-run collisions (tangential stagger + heading nudges — ram test: player slides around a parked rival, never pinned), wall grinding via applyWallContact (20° contact keeps 90% speed; square hit = crash), micro-drift (velAngle, GRIP_ON=34), smoothed lookahead camera, and the mobile viewport fix (100dvh column, letterboxed canvas — verified 375x667 and 320x568). Previously shipped 03b-01: trackProgress() continuous progress (SPINE_CUMLEN, circuit=5499px), crossedFinish() segment test replacing the CP0 radius (win now fires at x=505, was x≈300), gates shrunk to r=100 + CP2 moved to apex exit, overtake engine with 600ms confirmation + 3s cooldown, real-seconds gaps. 10/10 automated checks + natural-race AI lap regression, zero JS errors.
 **Resumed:** 2026-07-05
 
@@ -39,7 +39,7 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 | 2b | Monaco Overhaul | Rotating follow camera (car points up), Monaco at 3.5x in 1600x2000 world space, minimap, physics re-tuned | COMPLETE |
 | 2c | Gameplay Fix | Non-crossing circuit redesign, Monaco walls, collision fix, wrong-way detector, physics slowed for control, VS CPU → 1v1 | COMPLETE |
 | 3 | AI, Audio & Polish | Racing feels tense and dramatic: AI brakes for corners, background music builds atmosphere, VFX celebrate overtakes and communicate damage, DRS adds tactics | COMPLETE |
-| 3b | Gameplay Refactor | The game *cierra*: real finish line, honest overtake events, contact that slides instead of sticking, walls you grind, AI you can battle, Monaco with identity | ► IN PROGRESS (3/4) |
+| 3b | Gameplay Refactor | The game *cierra*: real finish line, honest overtake events, contact that slides instead of sticking, walls you grind, AI you can battle, Monaco with identity | COMPLETE |
 
 ## Performance Metrics
 

@@ -290,33 +290,36 @@ canvas {
   touch-action: none;
 }
 
-/* ── DRS button (DRS-01) — floats over the canvas, only while relevant ─────── */
-.drs-btn {
+/* ── NITRO button (03b-04) — the meter IS the button: fills bottom-up ───────── */
+.nitro-btn {
   position: absolute;
   right: 12px;
   bottom: 12px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-radius: 10px;
   font-weight: 900;
   font-size: 0.85rem;
   letter-spacing: 2px;
   cursor: pointer;
-  color: #04141a;
-  background: #00e0ff;
-  border: 2px solid #7ff2ff;
+  color: #eafcff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  background: rgba(4,20,26,0.85); /* overridden per-frame with the meter gradient */
+  border: 2px solid rgba(0,224,255,0.55);
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   z-index: 5;
 }
-.drs-btn[hidden] { display: none; }
-.drs-btn.available { animation: drsPulse 0.7s ease-in-out infinite; }
-.drs-btn.active {
-  background: #00e0ff;
+.nitro-btn[hidden] { display: none; }
+.nitro-btn.ready { animation: nitroPulse 0.8s ease-in-out infinite; border-color: #7ff2ff; }
+.nitro-btn.active {
   color: #04141a;
-  box-shadow: 0 0 22px rgba(0,224,255,0.85);
+  box-shadow: 0 0 26px rgba(0,224,255,0.9);
+  border-color: #ffffff;
 }
-@keyframes drsPulse {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 6px rgba(0,224,255,0.4); }
-  50%      { transform: scale(1.06); box-shadow: 0 0 20px rgba(0,224,255,0.9); }
+@keyframes nitroPulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(0,224,255,0.4); }
+  50%      { box-shadow: 0 0 20px rgba(0,224,255,0.9); }
 }
 
 /* ── Touch controls ───────────────────────────────────────── */
