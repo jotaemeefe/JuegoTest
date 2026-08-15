@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
+**Current release: R4A Grand Prix.** Solo mode now runs 22 cars (player + full rival grid),
+five laps, a P12 player start, a 135%-scale wider circuit, impulse-based pack collisions,
+and a 16-cell art tileset plus native tile/palette pixel pipeline. Multiplayer remains 1v1.
+
+## Mandatory release documentation workflow
+
+Every implementation batch must be recorded as a release phase under `.planning/phases/`
+with a `PLAN.md` and `RELEASE.md`. Update `.planning/ROADMAP.md` in the same change. Capture
+scope, decisions, files/assets, compatibility constraints, validation performed and any
+remaining blockers so another AI or developer can resume without reconstructing history.
+
 A browser-based 2D top-down F1 racing game themed around Franco Colapinto and Alpine. Two modes: VS CPU (solo, 1v1 against any of the 21 real 2026 F1 drivers), and multiplayer P2P via PeerJS WebRTC. Both modes race 2 cars. No build tools, no bundler, no package.json — pure HTML/CSS/JS.
 
 ## Running the game
@@ -47,13 +58,13 @@ The game loop branches on `phase`:
 
 All cars use the same model in `updateCar()`/`updateAI()`: speed converges **exponentially toward the effective top speed** (`ACCEL_RATE = 2.0/s` approach model), so caps are REAL. ⚠️ History: the pre-03b-04 model (constant accel 400 − friction 1.1×v) had a terminal velocity of 364 px/s, *below* every cap — MAX_SPD_ON, DRS and AI pace multipliers were decorative. Braking applies `BRAKE_FORCE`. Steering is `TURN_RATE × speed_factor`.
 
-**NITRO** (arcade core loop, replaces DRS): `car.nitro` 0–100 fills by clean driving (+8/s), drifting (+25/s) and slipstreaming ≤2s behind the rival (+15/s); hold ↑/W/Shift or the on-screen button to burn it (needs ≥25 to ignite, drains 40/s, ×1.35 top speed, flames + speed lines). The AI earns and spends by the same rules (`earnNitro`/`spendNitro`), attacking in battle range but never while boxed in traffic.
+**DRS** (R4B, supersedes the 03b nitro experiment): eligibility is detected at the finish line when the car is within one second of the car ahead. It can be consumed once on the following main straight, lasts at most three seconds and closes on zone exit. Player and AI share `isInDrsZone()` / `useDRS()` and the same rules.
 
 Movement runs through `moveCar()` (shared by player and AI): the velocity direction (`car.velAngle`) lags the heading at `GRIP_ON`/`GRIP_OFF` rad/s, producing a subtle micro-drift that scrubs a little speed. Monaco has no run-off — the walls *are* the circuit. Wall contact goes through `applyWallContact()`: shallow contact grinds along the barrier (heading peels toward the track tangent, light speed scrub); a square hit (> ~57° into the wall) is a one-time crash penalty that shakes the screen and adds damage. Car-car contact (`resolveCarCollision`) is arcade bump-and-run: 50/50 separation plus tangential stagger and heading nudges so cars slide around each other instead of sticking; grazes under 60 px/s closing speed are free. A wrong-way detector (`wrongWayTimer`) caps the player's speed and shows a "⚠ VUELTA INCORRECTA ⚠" overlay when heading opposes the nearest spine direction.
 
 ### Camera
 
-Translate-only follow camera (north-up, no rotation): the world is drawn with `ctx.translate(240,380) / translate(-camX,-camY)`, where `camX/camY` lerp toward the player car with a speed-based lookahead along `velAngle` (`updateCamera()`). The static world (sea/harbour, city blocks, gardens, armco, layered tarmac, paint) renders once into an offscreen 1600×2000 canvas (`buildEnvCanvas()`); per-frame world render is one `drawImage` plus dynamics (skid marks, sparks, tunnel roof overlay, nitro flames). All HUD/overlay elements (countdown, win text, damage bar, vignette, wrong-way warning, minimap) are drawn in screen space *after* `ctx.restore()`. `drawMinimap()` (top-right) shows the `ROAD_SPINE` outline and live car dots.
+Translate-only follow camera (north-up, no rotation): the world is drawn with `ctx.translate(240,380) / translate(-camX,-camY)`, where `camX/camY` lerp toward the player car with a speed-based lookahead along `velAngle` (`updateCamera()`). The static world renders once through `buildEnvCanvas()` from repeating surface tiles plus uniquely placed semantic props and crowd sprites; per-frame dynamics add skid marks, sparks, tunnel overlay and DRS streaks. HUD/overlays render in screen space after `ctx.restore()`.
 
 ### AI
 
@@ -86,7 +97,7 @@ Tuning these changes game feel significantly. Values below are the current 1600�
 | `TURN_RATE` | 4.5 rad/s | Steering sharpness |
 | `ACCEL_RATE` | 2.0 /s | Exponential approach to top speed (~90% in 1.15s) |
 | `MAX_SPD_ON` | 450 px/s | Top speed on track (really reached now) |
-| `NITRO_BOOST` | 1.35× | Top speed while burning nitro (607 px/s) |
+| `DRS_BOOST` | 1.18× | One legal main-straight activation after ≤1s detection |
 | `AI_PACE` | 1.06 | Global AI speed multiplier |
 | `MAX_SPD_OFF` | 175 px/s | Top speed off track |
 | `BRAKE_FORCE` | 900 px/s² | Braking deceleration |

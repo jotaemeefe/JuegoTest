@@ -1,7 +1,7 @@
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const TOTAL_LAPS    = 3;
+const TOTAL_LAPS    = 5;
 const MAX_SPD_ON    = 450;   // px/s on track — reduced for controllable cornering
 const MAX_SPD_OFF   = 175;   // px/s off track
 // 03b-04 FOUNDATIONAL FIX: the old model (AUTO_ACCEL 400 − FRICTION_K 1.1×v) had a
@@ -12,17 +12,17 @@ const ACCEL_RATE    = 2.0;   // per second — 0→90% of top speed in ~1.15s
 const BRAKE_FORCE   = 900;   // px/s² when braking
 const TURN_RATE     = 4.5;   // rad/s — increased for responsive steering
 const NET_MS        = 50;    // position broadcast interval
-const CAR_RADIUS    = 18;    // px, for car-car collision detection (D-13)
+const CAR_RADIUS    = 14;
+const GRID_SIZE     = 22;
+const WORLD_SCALE   = 1.65;
+const worldPoint = ([x, y]) => [x * WORLD_SCALE, y * WORLD_SCALE];
+const WORLD_W = 1600 * WORLD_SCALE;
+const WORLD_H = 2000 * WORLD_SCALE;
 
-// NITRO (03b-04 arcade pivot — replaces DRS): a visible meter earned by driving,
-// spent on demand. The core arcade loop: drive clean/drift → earn → boost to attack.
-const NITRO_MAX        = 100;
-const NITRO_IGNITE     = 25;    // minimum meter to start boosting
-const NITRO_DRAIN      = 40;    // per second while boosting
-const NITRO_BOOST      = 1.35;  // top-speed multiplier while boosting
-const NITRO_EARN_BASE  = 8;     // per second driving clean on track
-const NITRO_EARN_DRIFT = 25;    // per second while drifting
-const NITRO_EARN_SLIP  = 15;    // per second in the rival's slipstream (≤2s behind)
+// R4B DRS: detected at the finish line, usable once on the following main straight.
+const DRS_GAP_SECONDS = 1.0;
+const DRS_DURATION_MS = 3000;
+const DRS_BOOST       = 1.18;
 
 // AI global pace (03b-04): arcade rivals must threaten the player's raw speed.
 const AI_PACE = 1.06;
@@ -31,10 +31,10 @@ const AI_PACE = 1.06;
 // Designed for clean 2D top-down: northbound leg (Beau Rivage) at x≈1095-1200,
 // southbound leg (Swimming Pool) at x≈1418-1448 — 220+px separation guaranteed.
 // Main straight going EAST at y=1500; return going WEST at y≈1748.
-const ROAD_HALF_W = 80;
+const ROAD_HALF_W = 112;
 const ROAD_SPINE = [
   // ── META / Main Straight (going EAST, y=1500) ────────────────────────────
-  [200, 1500], [430, 1500], [660, 1500], [900, 1500], [1080, 1500],
+  [100, 1500], [430, 1500], [660, 1500], [900, 1500], [1080, 1500],
   // ── Sainte-Dévote (right turn going northeast) ───────────────────────────
   [1140, 1472], [1180, 1428], [1200, 1370],
   // ── Beau Rivage / Massenet (climbing NORTH, x≈1095-1200) ─────────────────
@@ -68,19 +68,17 @@ const ROAD_SPINE = [
   // ── NW curve back to META ─────────────────────────────────────────────────
   [278, 1728], [222, 1678], [204, 1618],
   // ── Close loop ───────────────────────────────────────────────────────────
-  [200, 1500],
-];
+  [100, 1500],
+].map(worldPoint);
 
 // Checkpoints {x,y,r} — anti-shortcut gates hit in order (R3B-01).
 // CP0 is the META marker only: the finish itself is a segment-crossing test
 // (crossedFinish), never a radius — the old r=200 fired the lap 200px early.
 // Gate radii are 100 (ROAD_HALF_W+20): they trigger only on their own passage.
-const CPS = [
-  { x: 500,  y: 1500, r: 0   },  // 0  META — handled by crossedFinish(), r unused
-  { x: 950,  y: 1005, r: 100 },  // 1  Casino / Mirabeau plateau
-  { x: 575,  y: 598,  r: 100 },  // 2  Loews apex EXIT (was [528,602] r=220 — fired on the approach)
-  { x: 1190, y: 682,  r: 100 },  // 3  Tunnel mid
-];
+const CPS = [[700,1500],[950,1005],[575,598],[1190,682]].map(([x,y], i) => {
+  const p = worldPoint([x,y]);
+  return { x:p[0], y:p[1], r:i === 0 ? 0 : ROAD_HALF_W + 28 };
+});
 
 // ── Continuous track progress constants (R3B-02) ──────────────────────────────
 // Prefix-sum of ROAD_SPINE segment lengths — arc-length lookup for trackProgress().
@@ -93,21 +91,20 @@ const SPINE_CUMLEN = (() => {
   return cum;
 })();
 const SPINE_TOTAL_LEN = SPINE_CUMLEN[SPINE_CUMLEN.length - 1];
-const FINISH_X = 500;  // META stripe x on the main straight (y=1500) — matches drawTrack()
+const [FINISH_X, FINISH_Y] = worldPoint([700, 1500]);
 // Arc position of the stripe along the spine (nearestSpinePoint is hoisted)
 const FINISH_ARC = (() => {
-  const n = nearestSpinePoint(FINISH_X, 1500);
+  const n = nearestSpinePoint(FINISH_X, FINISH_Y);
   return SPINE_CUMLEN[n.segIdx] + n.t * (SPINE_CUMLEN[n.segIdx + 1] - SPINE_CUMLEN[n.segIdx]);
 })();
 
 // Starting grid [P1, P2, P3, P4] — main straight y=1500, 2×2 staggered, pointing east (a:0)
 // All positions WEST of x=500 (META stripe) — cars start before finish line
-const START = [
-  { x: 420, y: 1506, a: 0 },  // P1 — player  (right col, front)
-  { x: 360, y: 1494, a: 0 },  // P2 — AI car1  (left col, front)
-  { x: 300, y: 1506, a: 0 },  // P3 — AI car2  (right col, rear)
-  { x: 240, y: 1494, a: 0 },  // P4 — AI car3  (left col, rear)
-];
+const START = Array.from({ length: GRID_SIZE }, (_, i) => {
+  const row = Math.floor(i / 2), lane = i % 2;
+  const p = worldPoint([620 - row * 30, lane ? 1462 : 1538]);
+  return { x:p[0], y:p[1], a:0 };
+});
 
 // Visual style for Colapinto — Alpine BWT
 // Visual style for Colapinto — Alpine BWT (the player's car)
@@ -177,7 +174,13 @@ const PERSONALITIES = {
 };
 
 // All 6 collision pairs among 4 cars (CARS-03)
-const PAIRS = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+const collisionPairs = () => {
+  const pairs = [];
+  for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
+    if (Math.abs(cars[i].progress - cars[j].progress) < 140) pairs.push([i,j]);
+  }
+  return pairs;
+};
 
 function rivalDiff(skill) {
   if (skill >= 0.92) return { label: 'ÉLITE',    color: '#ef4444' };
@@ -198,8 +201,8 @@ function personalityFor(skill) {
 // Dense section: Loews hairpin (WP 18-26) for tight corner precision
 // Loop: car.wpIdx = (car.wpIdx + 1) % AI_WAYPOINTS.length
 const AI_WAYPOINTS = [
-  [400,  1500],  //  0  META start
-  [660,  1500],  //  1  main straight mid
+  [650,  1500],  //  0  grid launch target
+  [900,  1500],  //  1  main straight mid
   [900,  1500],  //  2  main straight east
   [1050, 1500],  //  3  main straight end
   [1140, 1472],  //  4  Sainte-Dévote entry
@@ -253,7 +256,7 @@ const AI_WAYPOINTS = [
   [276,  1728],  // 52  NW curve upper
   [220,  1678],  // 53  NW curve mid
   [202,  1618],  // 54  NW curve lower
-];
+].map(worldPoint);
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game');
@@ -286,7 +289,7 @@ const canvasWrap = document.querySelector('.game-canvas-wrapper');
 
 // ── Mutable state ─────────────────────────────────────────────────────────────
 let phase          = 'lobby';   // lobby|creating|waiting|joining|countdown|racing|done
-let gameMode       = 'multi';   // 'multi' | 'solo'
+let gameMode       = 'multi';   // 'multi' | 'solo' (22 cars) | 'duel' (1v1 CPU)
 let isHost         = false;
 let selectedRival    = RIVALS[0]; // rival chosen on rival-select screen
 let selectedRivalIdx = 0;         // index in RIVALS — stable key for localStorage
@@ -302,8 +305,9 @@ function makeCar(idx) {
     damage: 0,         // 0–100 accumulated damage (per-car)
     wpIdx: 0,          // AI waypoint index (per-car, independent navigation)
     rivalData: null,   // RIVALS entry for style/skill (null for player)
-    nitro: 0,          // 0-100 meter, earned by driving (03b-04 arcade pivot)
-    boosting: false,   // true while nitro is being spent
+    drsAvailable: false,
+    drsActiveUntil: 0,
+    boosting: false,   // true only during a legal DRS activation
     flashUntil: 0,     // performance.now() until which the car flashes white (VFX-03)
     lineBias: 0,       // per-lap lateral line variation (AI-02)
     lineLap: -1,       // lap for which lineBias was last generated
@@ -322,10 +326,12 @@ function makeCar(idx) {
     mistakeCount: 0,   // pressure mistakes committed (observability)
     mistakeWideUntil: 0, // runs a wide line until this timestamp after a mistake (03b-04)
     rubber: 1.0,       // current rubber-band multiplier (observability)
+    challengeScore: 0,
+    cleanStreak: 0,
   };
 }
 
-// cars[] replaces local/remote: length 4 in solo mode, length 2 in multi mode
+// cars[]: 22 entries in solo Grand Prix, 2 in multiplayer.
 let cars = [];
 
 let countdown   = 3;
@@ -608,8 +614,8 @@ function stopScrapeSound() {
   scrapeNode = null; scrapeGain = null;
 }
 
-// AUDIO-02: nitro ignition whoosh — filtered noise burst that opens up.
-function playNitroSound() {
+// DRS activation whoosh — filtered noise burst that opens up.
+function playDrsSound() {
   try {
     const ac = getAudioCtx();
     const size = Math.floor(ac.sampleRate * 0.4);
@@ -663,24 +669,126 @@ function drawSpinePath(c = ctx) {
 
 // ── Tunnel zone (world-space bounding box covering the tunnel segment) ─────────
 // Portier exit [830,692] → tunnel [920-1330,680] → curve [1405,700] → chicane [1440,808]
-const TUNNEL_ZONE = { x1: 830, y1: 670, x2: 1450, y2: 830 };
+const TUNNEL_ZONE = { x1:830*WORLD_SCALE, y1:670*WORLD_SCALE, x2:1450*WORLD_SCALE, y2:830*WORLD_SCALE };
 
 // ── Static environment layer (03b-04 T3) ──────────────────────────────────────
 // Everything that never changes renders ONCE into an offscreen 1600×2000 canvas;
 // the per-frame world render becomes a single drawImage — cheaper than the old
 // multi-stroke redraw and it buys budget for particles and skid marks.
 let envCanvas = null;
+const TILE_SIZE = 128; // logical world size; source cells are reduced nearest-neighbour
+const pixelTiles = [];
+const crowdSprites = [];
+const tileSheet = new Image();
+tileSheet.src = 'assets/r4a-tileset.png';
+tileSheet.onload = () => {
+  const sourceSize = Math.floor(Math.min(tileSheet.naturalWidth, tileSheet.naturalHeight) / 4);
+  for (let row = 0; row < 4; row++) for (let col = 0; col < 4; col++) {
+    const tile = document.createElement('canvas');
+    tile.width = TILE_SIZE; tile.height = TILE_SIZE;
+    const tc = tile.getContext('2d');
+    tc.imageSmoothingEnabled = false;
+    tc.drawImage(tileSheet, col * sourceSize, row * sourceSize, sourceSize, sourceSize,
+      0, 0, TILE_SIZE, TILE_SIZE);
+    pixelTiles[row * 4 + col] = tile;
+  }
+  envCanvas = null;
+};
+const crowdSheet = new Image();
+crowdSheet.src = 'assets/r4b-crowd.png';
+crowdSheet.onload = () => {
+  const sw = Math.floor(crowdSheet.naturalWidth / 2);
+  const sh = Math.floor(crowdSheet.naturalHeight / 2);
+  for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
+    const sprite = document.createElement('canvas');
+    sprite.width = 256; sprite.height = 256;
+    const sc = sprite.getContext('2d');
+    sc.imageSmoothingEnabled = false;
+    sc.drawImage(crowdSheet, col * sw, row * sh, sw, sh, 0, 0, 256, 256);
+    crowdSprites[row * 2 + col] = sprite;
+  }
+  envCanvas = null;
+};
+
+function fillPixelTile(c, tileIdx, x, y, w, h) {
+  const tile = pixelTiles[tileIdx];
+  if (!tile) return false;
+  c.save();
+  c.imageSmoothingEnabled = false;
+  c.fillStyle = c.createPattern(tile, 'repeat');
+  c.translate(x, y);
+  c.fillRect(0, 0, w, h);
+  c.restore();
+  return true;
+}
+
+function drawPixelSprite(c, source, x, y, w, h) {
+  if (!source) return;
+  c.save(); c.imageSmoothingEnabled = false;
+  c.drawImage(source, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  c.restore();
+}
+
+function drawPixelGround(c) {
+  if (fillPixelTile(c, 1, 0, 0, WORLD_W, WORLD_H)) return;
+  const tileW = 32, tileH = 20;
+  c.fillStyle = '#454650';
+  c.fillRect(0, 0, WORLD_W, WORLD_H);
+  for (let y = 0, row = 0; y < WORLD_H; y += tileH, row++) {
+    const offset = row % 2 ? -tileW / 2 : 0;
+    for (let x = offset; x < WORLD_W; x += tileW) {
+      const hash = ((x + 1000) * 73856093 ^ (y + 1000) * 19349663) >>> 0;
+      c.fillStyle = (hash & 3) === 0 ? '#4a4b55' : '#474852';
+      c.fillRect(x + 2, y + 2, tileW - 3, tileH - 3);
+      if ((hash & 31) === 0) {
+        c.fillStyle = '#555660';
+        c.fillRect(x + 7, y + 6, 4, 4);
+      }
+    }
+  }
+}
+
+function finalizePixelEnvironment() {
+  const pixelSize = 4;
+  const low = document.createElement('canvas');
+  low.width = Math.ceil(WORLD_W / pixelSize);
+  low.height = Math.ceil(WORLD_H / pixelSize);
+  const lc = low.getContext('2d', { willReadFrequently:true });
+  lc.imageSmoothingEnabled = false;
+  lc.drawImage(envCanvas, 0, 0, low.width, low.height);
+  // file:// canvases containing local images can be origin-tainted. Quantization is
+  // an optional palette pass; integer down/up scaling remains the pixel invariant.
+  try {
+    const image = lc.getImageData(0, 0, low.width, low.height);
+    for (let i = 0; i < image.data.length; i += 4) {
+      image.data[i]     = Math.min(255, Math.round(image.data[i] / 16) * 16);
+      image.data[i + 1] = Math.min(255, Math.round(image.data[i + 1] / 16) * 16);
+      image.data[i + 2] = Math.min(255, Math.round(image.data[i + 2] / 16) * 16);
+    }
+    lc.putImageData(image, 0, 0);
+  } catch (_) {
+    // Safe fallback for direct index.html launch: the source tiles are already
+    // palette-limited pixel art and are still scaled with smoothing disabled.
+  }
+  const crisp = document.createElement('canvas');
+  crisp.width = WORLD_W; crisp.height = WORLD_H;
+  const pc = crisp.getContext('2d');
+  pc.imageSmoothingEnabled = false;
+  pc.drawImage(low, 0, 0, crisp.width, crisp.height);
+  envCanvas = crisp;
+}
 
 function buildEnvCanvas() {
   if (envCanvas) return;
   envCanvas = document.createElement('canvas');
-  envCanvas.width = 1600; envCanvas.height = 2000;
+  envCanvas.width = WORLD_W; envCanvas.height = WORLD_H;
   const c = envCanvas.getContext('2d');
   c.lineCap = 'round'; c.lineJoin = 'round';
 
   // Land base — warm Monaco stone
   c.fillStyle = '#3d3c48';
-  c.fillRect(0, 0, 1600, 2000);
+  c.fillRect(0, 0, WORLD_W, WORLD_H);
+  drawPixelGround(c);
 
   // Hillside strip (north) — the principality climbs behind the tunnel
   const hill = c.createLinearGradient(0, 0, 0, 560);
@@ -759,6 +867,23 @@ function buildEnvCanvas() {
     c.beginPath(); c.arc(tx, ty, 8 + Math.random() * 7, 0, Math.PI * 2); c.fill();
   }
 
+  // Real atlas cells, placed as materials — never draw or scale the entire sheet.
+  fillPixelTile(c, 3, 0, 0, WORLD_W, 560 * WORLD_SCALE); // gardens/hillside
+  fillPixelTile(c, 0, 1495 * WORLD_SCALE, 560 * WORLD_SCALE,
+    WORLD_W - 1495 * WORLD_SCALE, WORLD_H - 560 * WORLD_SCALE); // sea
+  fillPixelTile(c, 0, 560 * WORLD_SCALE, 1830 * WORLD_SCALE,
+    WORLD_W - 560 * WORLD_SCALE, WORLD_H - 1830 * WORLD_SCALE); // harbour
+  fillPixelTile(c, 8, 430 * WORLD_SCALE, 1325 * WORLD_SCALE, 520, 180);
+  drawPixelSprite(c, pixelTiles[9], 420 * WORLD_SCALE, 1120 * WORLD_SCALE, 220 * WORLD_SCALE, 75 * WORLD_SCALE);
+  drawPixelSprite(c, pixelTiles[11], 1495 * WORLD_SCALE, 980 * WORLD_SCALE, 130 * WORLD_SCALE, 220 * WORLD_SCALE);
+  fillPixelTile(c, 12, 260 * WORLD_SCALE, 1040 * WORLD_SCALE, 460 * WORLD_SCALE, 220 * WORLD_SCALE);
+  drawPixelSprite(c, pixelTiles[14], 940 * WORLD_SCALE, 590 * WORLD_SCALE, 300 * WORLD_SCALE, 135 * WORLD_SCALE);
+  drawPixelSprite(c, pixelTiles[15], 1210 * WORLD_SCALE, 1450 * WORLD_SCALE, 170 * WORLD_SCALE, 90 * WORLD_SCALE);
+  drawPixelSprite(c, crowdSprites[0], 500 * WORLD_SCALE, 1335 * WORLD_SCALE, 230, 145);
+  drawPixelSprite(c, crowdSprites[1], 690 * WORLD_SCALE, 1338 * WORLD_SCALE, 210, 135);
+  drawPixelSprite(c, crowdSprites[2], 430 * WORLD_SCALE, 1100 * WORLD_SCALE, 190, 125);
+  drawPixelSprite(c, crowdSprites[3], 1230 * WORLD_SCALE, 1435 * WORLD_SCALE, 150, 100);
+
   // ── The circuit itself, layered for depth ────────────────────────────────────
   // Armco barriers (outermost)
   c.lineWidth = ROAD_HALF_W * 2 + 22; c.strokeStyle = '#9aa0a8';
@@ -774,8 +899,10 @@ function buildEnvCanvas() {
   c.restore();
   // Tarmac: edge shadow → body → inner highlight (reads as a crowned road)
   c.lineWidth = ROAD_HALF_W * 2 + 4; c.strokeStyle = '#1d2129'; drawSpinePath(c); c.stroke();
-  c.lineWidth = ROAD_HALF_W * 2;     c.strokeStyle = '#31364a'; drawSpinePath(c); c.stroke();
-  c.lineWidth = ROAD_HALF_W * 2 - 26; c.strokeStyle = '#383e52'; drawSpinePath(c); c.stroke();
+  c.lineWidth = ROAD_HALF_W * 2;
+  c.strokeStyle = pixelTiles[2] ? c.createPattern(pixelTiles[2], 'repeat') : '#31364a';
+  drawSpinePath(c); c.stroke();
+  c.lineWidth = ROAD_HALF_W * 2 - 26; c.strokeStyle = 'rgba(56,62,82,0.48)'; drawSpinePath(c); c.stroke();
 
   // Centerline
   c.save();
@@ -815,13 +942,13 @@ function buildEnvCanvas() {
   // META chequered stripe + label
   c.save();
   c.lineWidth = 5; c.setLineDash([6, 6]); c.strokeStyle = '#f8fafc';
-  c.beginPath(); c.moveTo(500, 1500 - ROAD_HALF_W); c.lineTo(500, 1500 + ROAD_HALF_W); c.stroke();
+  c.beginPath(); c.moveTo(FINISH_X, FINISH_Y - ROAD_HALF_W); c.lineTo(FINISH_X, FINISH_Y + ROAD_HALF_W); c.stroke();
   c.lineDashOffset = 6; c.strokeStyle = '#111827';
-  c.beginPath(); c.moveTo(500, 1500 - ROAD_HALF_W); c.lineTo(500, 1500 + ROAD_HALF_W); c.stroke();
+  c.beginPath(); c.moveTo(FINISH_X, FINISH_Y - ROAD_HALF_W); c.lineTo(FINISH_X, FINISH_Y + ROAD_HALF_W); c.stroke();
   c.setLineDash([]); c.restore();
   c.fillStyle = 'rgba(248,250,252,0.75)';
   c.font = 'bold 12px monospace'; c.textAlign = 'center';
-  c.fillText('META', 514, 1412);
+  c.fillText('META', FINISH_X + 14, FINISH_Y - ROAD_HALF_W - 12);
 
   // Tunnel entry/exit shadow ramps (the roof itself is a per-frame overlay over cars)
   const tIn = c.createLinearGradient(860, 0, 940, 0);
@@ -830,6 +957,7 @@ function buildEnvCanvas() {
   const tOut = c.createLinearGradient(1330, 0, 1250, 0);
   tOut.addColorStop(0, 'rgba(10,12,24,0)'); tOut.addColorStop(1, 'rgba(10,12,24,0.45)');
   c.fillStyle = tOut; c.fillRect(1250, 596, 80, 180);
+  finalizePixelEnvironment();
 }
 
 function drawTrack() {
@@ -843,9 +971,9 @@ function drawTrack() {
 // Tunnel roof — translucent, drawn AFTER the cars so they dim underneath (03b-04)
 function drawTunnelRoof() {
   ctx.fillStyle = 'rgba(10,12,26,0.52)';
-  ctx.fillRect(940, 592, 310, 182);
+  ctx.fillRect(940*WORLD_SCALE, 592*WORLD_SCALE, 310*WORLD_SCALE, 182*WORLD_SCALE);
   ctx.fillStyle = 'rgba(240,240,255,0.20)'; // roof lighting strip
-  ctx.fillRect(940, 676, 310, 5);
+  ctx.fillRect(940*WORLD_SCALE, 676*WORLD_SCALE, 310*WORLD_SCALE, 5);
 }
 
 // ── Skid marks + sparks (03b-04 dynamics) ─────────────────────────────────────
@@ -926,8 +1054,9 @@ function carStyle(car, carIdx) {
 
 function drawCar(car, carIdx) {
   const s   = carStyle(car, carIdx);
-  const sp  = project(car.x, car.y);
-  const θ   = car.angle + Math.PI / 2;
+  const raw = project(car.x, car.y);
+  const sp  = { x:Math.round(raw.x), y:Math.round(raw.y) };
+  const θ   = Math.round((car.angle + Math.PI / 2) / (Math.PI / 16)) * (Math.PI / 16);
   const COS = Math.cos(θ), SIN = Math.sin(θ);
 
   // Standard 2D rotation matrix (top-down view)
@@ -939,9 +1068,7 @@ function drawCar(car, carIdx) {
   ctx.fillStyle = '#000';
   ctx.translate(sp.x + 3, sp.y + 3);
   ctx.transform(ma, mb, mc, md, 0, 0);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 11, 24, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(-11, -22, 22, 44);
   ctx.restore();
 
   // Car body (top-down)
@@ -949,13 +1076,10 @@ function drawCar(car, carIdx) {
   ctx.translate(sp.x, sp.y);
   ctx.transform(ma, mb, mc, md, 0, 0);
 
-  // Nitro flame — behind the car, flickering (03b-04)
+  // Open rear-wing slot while DRS is active — no fictional exhaust flame.
   if (car.boosting) {
-    const f = 10 + Math.random() * 14;
-    ctx.fillStyle = 'rgba(0,224,255,0.85)';
-    ctx.beginPath(); ctx.moveTo(-5, 21); ctx.lineTo(0, 21 + f); ctx.lineTo(5, 21); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.beginPath(); ctx.moveTo(-2.5, 21); ctx.lineTo(0, 21 + f * 0.55); ctx.lineTo(2.5, 21); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(-11, 18, 22, 2);
   }
 
   // Wheels (03b-04 sprite polish)
@@ -984,15 +1108,12 @@ function drawCar(car, carIdx) {
   ctx.fillRect(-5, -10, 10, 18);
 
   // Halo (03b-04 sprite polish)
-  ctx.strokeStyle = 'rgba(200,205,215,0.8)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(0, -3, 6, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  ctx.fillStyle = '#c8cdd7';
+  ctx.fillRect(-6, -8, 2, 8); ctx.fillRect(4, -8, 2, 8); ctx.fillRect(-4, -8, 8, 2);
 
   // Helmet
   ctx.fillStyle = s.helmet || '#555';
-  ctx.beginPath();
-  ctx.ellipse(0, -2, 4, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.fillRect(-4, -6, 8, 9);
 
   // Visor
   ctx.fillStyle = 'rgba(10,20,40,0.88)';
@@ -1095,7 +1216,7 @@ function crossedFinish(car) {
   if (Math.cos(car.angle) <= 0) return false; // must be traveling east, not backing over
   const t = (FINISH_X - car.prevX) / (car.x - car.prevX);
   const yCross = car.prevY + (car.y - car.prevY) * t;
-  return Math.abs(yCross - 1500) <= ROAD_HALF_W;
+  return Math.abs(yCross - FINISH_Y) <= ROAD_HALF_W;
 }
 
 // ── Movement integration (R3B-05/06) ──────────────────────────────────────────
@@ -1172,36 +1293,34 @@ function resolveCarCollision(a, b) {
   const minDist = CAR_RADIUS * 2;
   if (dist2 >= minDist * minDist || dist2 === 0) return false;
   const dist = Math.sqrt(dist2);
-  const nx = dx / dist, ny = dy / dist;   // contact normal a→b
-  const tx = -ny, ty = nx;                // contact tangent
+  const nx = dx / dist, ny = dy / dist;
+  const overlap = minDist - dist;
+  // Strong positional correction is the anti-pile-up invariant: a pair exits overlap
+  // in one frame even inside a dense 22-car pack.
+  const correction = overlap * 0.54 + 0.35;
+  a.x -= nx * correction; a.y -= ny * correction;
+  b.x += nx * correction; b.y += ny * correction;
 
-  // 50/50 separation (was full overlap on EACH car — visible position pops)
-  const sep = (minDist - dist) * 0.51;
-  a.x -= nx * sep; a.y -= ny * sep;
-  b.x += nx * sep; b.y += ny * sep;
+  const avx = Math.cos(a.velAngle) * a.speed, avy = Math.sin(a.velAngle) * a.speed;
+  const bvx = Math.cos(b.velAngle) * b.speed, bvy = Math.sin(b.velAngle) * b.speed;
+  const closing = (avx - bvx) * nx + (avy - bvy) * ny;
+  const aVn = avx * nx + avy * ny, bVn = bvx * nx + bvy * ny;
+  if (closing <= 0) return { impact:0, aVn, bVn };
 
-  const aVn = (Math.cos(a.angle) * nx + Math.sin(a.angle) * ny) * a.speed;
-  const bVn = (Math.cos(b.angle) * nx + Math.sin(b.angle) * ny) * b.speed;
-  if (bVn - aVn >= 0) return { impact: 0, aVn, bVn }; // already separating
-  const relV = aVn - bVn;
-
-  // Soften only the closing momentum — the race keeps flowing
-  a.speed = Math.max(0, a.speed - relV * 0.45);
-  b.speed = Math.max(0, b.speed - relV * 0.45);
-
-  // Anti-stick: stagger the cars across the contact tangent and nudge their headings,
-  // EACH toward its own lean side — pushing a car against where it is steering (e.g.
-  // an AI mid-swerve) cancels its escape and re-forms the glue. If both lean the same
-  // way the faster car still slides past on preserved tangential motion.
-  const aSide = Math.sign(Math.cos(a.angle) * tx + Math.sin(a.angle) * ty) || 1;
-  const bSide = Math.sign(Math.cos(b.angle) * tx + Math.sin(b.angle) * ty) || -aSide;
-  const lateral = Math.min(8, 2 + relV * 0.02);
-  a.x += tx * aSide * lateral; a.y += ty * aSide * lateral;
-  b.x += tx * bSide * lateral; b.y += ty * bSide * lateral;
-  const nudge = Math.min(0.22, 0.08 + relV * 0.0004);
-  a.angle += aSide * nudge;   a.velAngle += aSide * nudge;
-  b.angle += bSide * nudge;   b.velAngle += bSide * nudge;
-  return { impact: relV, aVn, bVn };
+  // Low restitution + conserved tangential motion: cars rub and deflect instead of
+  // stopping, teleporting sideways, or repeatedly rebuilding the same collision.
+  const impulse = closing * 0.56;
+  let nax = avx - nx * impulse, nay = avy - ny * impulse;
+  let nbx = bvx + nx * impulse, nby = bvy + ny * impulse;
+  const tangentKick = Math.min(42, closing * 0.12);
+  const side = Math.sign(avx * -ny + avy * nx - (bvx * -ny + bvy * nx)) || (a.isPlayer ? 1 : -1);
+  nax += -ny * side * tangentKick; nay += nx * side * tangentKick;
+  nbx -= -ny * side * tangentKick; nby -= nx * side * tangentKick;
+  a.speed = Math.hypot(nax, nay); a.velAngle = Math.atan2(nay, nax);
+  b.speed = Math.hypot(nbx, nby); b.velAngle = Math.atan2(nby, nbx);
+  a.angle += side * Math.min(0.10, closing / 1800);
+  b.angle -= side * Math.min(0.10, closing / 1800);
+  return { impact:closing, aVn, bVn };
 }
 
 // ── Classification / DRS helpers ──────────────────────────────────────────────
@@ -1218,34 +1337,20 @@ function carAhead(car) {
   return best;
 }
 
-// ── NITRO (03b-04 arcade pivot) ────────────────────────────────────────────────
-// Earn side of the loop, shared by player and AI. Clean driving fills slowly,
-// drifting fills fast, slipstreaming the car ahead fills too. Grinding earns nothing.
-function earnNitro(car, dt) {
-  if (car.finished || car.wallContact) return;
-  let rate = NITRO_EARN_BASE;
-  let dv = car.angle - car.velAngle;
-  while (dv >  Math.PI) dv -= Math.PI * 2;
-  while (dv < -Math.PI) dv += Math.PI * 2;
-  if (Math.abs(dv) > 0.06 && car.speed > 180) rate += NITRO_EARN_DRIFT; // drifting
-  const ahead = carAhead(car);
-  if (ahead) {
-    const gapSec = (ahead.progress - car.progress) / Math.max(car.speed, 100);
-    if (gapSec >= 0 && gapSec < 2) rate += NITRO_EARN_SLIP;             // slipstream
-  }
-  car.nitro = Math.min(NITRO_MAX, car.nitro + rate * dt);
+function isInDrsZone(car) {
+  const near = nearestSpinePoint(car.x, car.y);
+  return near.segIdx <= 4 && near.dirX > 0.75;
 }
 
-// Spend side: boost while `wantBoost` holds and there is meter left (ignition needs
-// NITRO_IGNITE so a tap can't stutter-boost). Returns the top-speed multiplier.
-function spendNitro(car, wantBoost, dt) {
-  if (wantBoost && !car.boosting && car.nitro >= NITRO_IGNITE) {
-    car.boosting = true;
-    if (car.isPlayer) playNitroSound();
+function useDRS(car, request) {
+  const now = performance.now();
+  if (request && car.drsAvailable && isInDrsZone(car) && !car.finished) {
+    car.drsAvailable = false;
+    car.drsActiveUntil = now + DRS_DURATION_MS;
+    if (car.isPlayer) playDrsSound();
   }
-  if (!wantBoost || car.nitro <= 0 || car.finished) car.boosting = false;
-  if (car.boosting) car.nitro = Math.max(0, car.nitro - NITRO_DRAIN * dt);
-  return car.boosting ? NITRO_BOOST : 1.0;
+  car.boosting = now < car.drsActiveUntil && isInDrsZone(car) && !car.finished;
+  return car.boosting ? DRS_BOOST : 1.0;
 }
 
 // VFX-02: screen shake reused for off-track exits and hard collisions.
@@ -1298,8 +1403,13 @@ function checkCheckpoints(car) {
           }
         }
       }
+      const ahead = carAhead(car);
+      const gapSec = ahead ? (ahead.progress - car.progress) / Math.max(car.speed, 100) : Infinity;
+      car.drsAvailable = !!ahead && gapSec >= 0 && gapSec <= DRS_GAP_SECONDS;
+      car.drsActiveUntil = 0;
       car.lap++;
       if (car.lap >= TOTAL_LAPS) {
+        car.finishPosition = 1 + cars.filter(c => c.finished).length;
         car.finished = true;
         return;
       }
@@ -1313,6 +1423,15 @@ function checkCheckpoints(car) {
     const dx = car.x - cp.x, dy = car.y - cp.y;
     if (dx * dx + dy * dy < cp.r * cp.r) {
       if (car.isPlayer) cpFlash = 0.12;
+      if (car.isPlayer) {
+        const precision = Math.hypot(dx, dy) / cp.r;
+        const perfect = precision < 0.42 && car.speed > MAX_SPD_ON * 0.62;
+        car.cleanStreak = perfect ? car.cleanStreak + 1 : Math.max(0, car.cleanStreak - 1);
+        const sectorPoints = Math.round((perfect ? 400 : 150) * (1 + Math.min(3, car.cleanStreak) * 0.25));
+        car.challengeScore += sectorPoints;
+        addFloatingText(perfect ? `SECTOR PERFECTO · +${sectorPoints}` : `SECTOR +${sectorPoints}`,
+          perfect ? '#fbbf24' : '#7dd3fc', 240, 270, perfect ? 15 : 12);
+      }
       car.nextCP = (car.nextCP + 1) % CPS.length;
     }
   }
@@ -1323,8 +1442,7 @@ function updateCar(car, dt, damage = 0) {
   if (car.finished) return;
   const onTrack = isOnTrack(car.x, car.y);
   const damageFactor = 1 - (Math.min(damage, 100) / 100) * 0.45;
-  earnNitro(car, dt);
-  const boostMul = spendNitro(car, keys.boost, dt); // hold ↑/W/Shift or the button
+  const boostMul = useDRS(car, keys.boost);
   const maxSpd  = (onTrack ? MAX_SPD_ON : MAX_SPD_OFF) * damageFactor * boostMul;
 
   // Auto-accelerate: exponential approach to the effective top speed (03b-04)
@@ -1341,6 +1459,7 @@ function updateCar(car, dt, damage = 0) {
   // Move with micro-drift; Monaco walls grind/crash via applyWallContact (R3B-05/06)
   if (moveCar(car, dt) && car.isPlayer) {
     car.damage = Math.min(100, car.damage + 1.5); // hard wall hit
+    car.cleanStreak = 0;
     triggerShake();
   }
 }
@@ -1450,7 +1569,7 @@ function updateAI(car, dt) {
   const noise    = (Math.random() - 0.5) * noiseAmp * dt;
   car.angle += Math.sign(diff) * Math.min(absDiff, maxTurn) + noise;
 
-  // W3-T2/T3 (retuned in 03b-04): catch-up, pressure and nitro decisions, all from
+  // W3-T2/T3: catch-up, pressure and DRS decisions, all from
   // the continuous-progress gap. gapSec > 0 = this AI leads the player.
   // The leader-nerf (×0.96 when ahead) is GONE — an arcade rival never dumbs down.
   let rubber = 1.0, wantBoost = false;
@@ -1458,10 +1577,7 @@ function updateAI(car, dt) {
     const gapSec = (car.progress - cars[0].progress) / Math.max(cars[0].speed, 100);
     // Catch-up only: far behind → push, capped at an effective skill of 1.02.
     if (gapSec < -4) rubber = Math.min(1.05, 1.02 / (skill * pers.speedMult));
-    // Nitro: attack when in battle range — chasing the player or defending a fresh
-    // pass — but never while boxed behind a slow car (boosting into traffic is dumb).
-    wantBoost = gapSec > -2.5 && gapSec < 0.5 && boxedCap === Infinity &&
-                (car.boosting || car.nitro >= 40);
+    wantBoost = car.drsAvailable && boxedCap === Infinity && isInDrsZone(car);
     // Pressure mistakes (03b-04): a LIFT + wide line for 1s — visible and exploitable,
     // never a steering flinch (the flinch at speed was the AI's wall-crash source).
     if (gapSec > 0 && gapSec < 1.0) {
@@ -1484,9 +1600,7 @@ function updateAI(car, dt) {
   const braking       = absDiff > 0.5;
   const brakeStrength = Math.min(1, Math.max(0, (absDiff - 0.5) / 0.9)) * pers.brakeMult;
   const lapBonus      = 1 + Math.min(car.lap, 2) * 0.04; // +4% per completed lap, max +8%
-  // NITRO (03b-04): the AI earns like the player and spends it to battle
-  earnNitro(car, dt);
-  const boostMul = spendNitro(car, wantBoost, dt);
+  const boostMul = useDRS(car, wantBoost);
   // AI_PACE + relaxed cornering cap (0.42 → 0.30): rivals now threaten the player's
   // raw pace — the difficulty ladder comes from skill, not from a slow ceiling.
   const aiMaxSpd = Math.min(boxedCap,
@@ -1497,7 +1611,7 @@ function updateAI(car, dt) {
   // AI-01: braking force raised 0.35 → 0.7 base, graded by corner sharpness
   if (braking) car.speed -= BRAKE_FORCE * 0.7 * brakeStrength * dt;
   // Traffic braking (03b-04): boxed with speed far above the traffic cap → brake
-  // for real; the approach model alone decays too softly after a nitro run.
+  // for real; the approach model alone decays too softly after a DRS run.
   if (car.speed > boxedCap + 40) car.speed -= BRAKE_FORCE * 0.8 * dt;
   car.speed = Math.max(0, Math.min(car.speed, maxSpd));
 
@@ -1517,7 +1631,7 @@ function updateHUD() {
     .map((c, i) => ({ i, p: c.finished ? Infinity : c.progress }))
     .sort((a, b) => b.p - a.p);
   const playerRank = ranked.findIndex(r => r.i === 0) + 1; // 1-based
-  hudPos.textContent = `P${playerRank}`;
+  hudPos.textContent = `P${playerRank}/${cars.length}`;
 
   // Overtake events (R3B-04): the new ordering must persist RANK_CONFIRM_MS before an
   // event fires, with a per-direction cooldown. Side-by-side jitter never confirms.
@@ -1535,6 +1649,8 @@ function updateHUD() {
       if (gained && now - lastPassMsgAt >= OVERTAKE_CD_MS) {
         lastPassMsgAt = now;
         addFloatingText('¡LO PASÉ! ⚡', '#10b981', 240, 220, 20);
+        cars[0].cleanStreak++;
+        cars[0].challengeScore += 500 * Math.min(4, cars[0].cleanStreak);
         playOvertakeSound();
         const passed = ranked[playerRank] ? cars[ranked[playerRank].i] : null; // car now just behind
         if (passed) passed.flashUntil = now + 500;
@@ -1546,13 +1662,14 @@ function updateHUD() {
     }
   }
 
-  if (gameMode === 'solo') {
-    // Gap to the rival in real seconds: progress delta (px along track) over player speed
-    if (cars[1]) {
-      const d = cars[0].progress - cars[1].progress; // + = player ahead
+  if (gameMode !== 'multi') {
+    // Duel shows the rival gap; Grand Prix shows the gap to the race leader.
+    const reference = gameMode === 'duel' ? cars[1] : cars[ranked[0].i];
+    if (reference) {
+      const d = cars[0].progress - reference.progress;
       if (isFinite(d)) {
         const secs = (Math.abs(d) / Math.max(cars[0].speed, 100)).toFixed(1);
-        hudRole.textContent = `${d >= 0 ? '+' : '-'}${secs}s`;
+        hudRole.textContent = reference === cars[0] ? 'LÍDER' : `-${secs}s`;
         hudRole.style.color = d >= 0 ? '#10b981' : '#ef4444';
       } else {
         hudRole.textContent = '—'; // rival already finished
@@ -1629,7 +1746,7 @@ function drawDamageTint(damage) {
 }
 
 // ── Boost speed lines (VFX-04) ────────────────────────────────────────────────
-// Cyan motion streaks along the screen edges while the player's nitro is burning.
+// Motion streaks along the screen edges while the player's DRS is open.
 function drawSpeedLines() {
   ctx.save();
   ctx.strokeStyle = 'rgba(0,224,255,0.5)';
@@ -1644,35 +1761,29 @@ function drawSpeedLines() {
   ctx.restore();
 }
 
-// ── NITRO button + on-canvas meter (03b-04) ───────────────────────────────────
-const nitroBtn = document.getElementById('btn-nitro');
-function updateNitroUI(car) {
-  if (!nitroBtn) return;
-  if (!car || phase !== 'racing') { nitroBtn.hidden = true; return; }
-  nitroBtn.hidden = false;
-  const pct = Math.round(car.nitro);
-  nitroBtn.classList.toggle('ready', !car.boosting && car.nitro >= NITRO_IGNITE);
-  nitroBtn.classList.toggle('active', car.boosting);
-  // Meter fill rendered as a bottom-up gradient stop on the button itself
-  nitroBtn.style.background = car.boosting
-    ? '#00e0ff'
-    : `linear-gradient(to top, rgba(0,224,255,0.85) ${pct}%, rgba(4,20,26,0.85) ${pct}%)`;
+// ── DRS button + status ───────────────────────────────────────────────────────
+const drsBtn = document.getElementById('btn-drs');
+function updateDRSUI(car) {
+  if (!drsBtn) return;
+  if (!car || phase !== 'racing') { drsBtn.hidden = true; return; }
+  drsBtn.hidden = false;
+  drsBtn.textContent = car.boosting ? 'DRS ABIERTO' : car.drsAvailable ? 'ACTIVAR DRS' : 'DRS CERRADO';
+  drsBtn.classList.toggle('ready', !car.boosting && car.drsAvailable && isInDrsZone(car));
+  drsBtn.classList.toggle('active', car.boosting);
+  drsBtn.style.background = car.boosting ? '#22c55e' : 'rgba(4,20,26,0.88)';
 }
 
-// On-canvas nitro bar (bottom-left) — the meter is a core mechanic, always visible
-function drawNitroBar(car) {
-  const x = 14, y = 596, w = 130, h = 10;
+function drawDRSStatus(car) {
+  const x = 14, y = 596, w = 104, h = 12;
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
-  const pct = car.nitro / NITRO_MAX;
-  ctx.fillStyle = car.boosting ? '#7ff2ff'
-    : car.nitro >= NITRO_IGNITE ? '#00e0ff' : 'rgba(0,224,255,0.35)';
-  ctx.fillRect(x, y, w * pct, h);
+  ctx.fillStyle = car.boosting ? '#22c55e' : car.drsAvailable ? '#fbbf24' : '#334155';
+  ctx.fillRect(x, y, w, h);
   ctx.font = 'bold 8px monospace';
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(248,250,252,0.85)';
-  ctx.fillText(car.boosting ? 'NITRO ⚡' : 'NITRO', x, y - 5);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillText(car.boosting ? 'DRS ABIERTO' : car.drsAvailable ? 'DRS DISPONIBLE' : 'DRS', x, y - 5);
   ctx.restore();
 }
 
@@ -1802,7 +1913,7 @@ function loop(ts) {
     }
   } else if (phase === 'racing') {
 
-    if (gameMode === 'solo') {
+    if (gameMode !== 'multi') {
       // Update all 4 cars
       cars.forEach(car => {
         if (car.isPlayer) {
@@ -1814,7 +1925,7 @@ function loop(ts) {
       });
 
       // Car-car collision (R3B-03): bump-and-run — grazes are free, real hits cost
-      PAIRS.forEach(([i, j]) => {
+      collisionPairs().forEach(([i, j]) => {
         const a = cars[i], b = cars[j];
         if (!a || !b || a.finished || b.finished) return;
         const hit = resolveCarCollision(a, b);
@@ -1822,6 +1933,7 @@ function loop(ts) {
         // Grazing contact (closing speed <= 60 px/s) costs nothing — racing wheel-to-
         // wheel must be viable. Only the player accumulates damage for the HUD.
         if (hit.impact > 60) {
+          cars[0].cleanStreak = 0;
           const other = i === 0 ? b : a;
           const playerIsAggressor = i === 0 ? hit.aVn > hit.bVn + 5 : hit.bVn > hit.aVn + 5;
           const baseDmg = Math.min(6, 1 + hit.impact * 0.02);
@@ -1872,8 +1984,8 @@ function loop(ts) {
     });
     setEngineMuffled(cars[0].inTunnel); // AUDIO-03: muffle engine inside the tunnel
 
-    // NITRO button/meter state (03b-04)
-    updateNitroUI(cars[0]);
+    // DRS availability/activation state
+    updateDRSUI(cars[0]);
 
     // Wrong-way detection: compare player heading to nearest spine direction
     if (cars[0].speed > 80) {
@@ -1913,9 +2025,10 @@ function loop(ts) {
 
     // Win / total-damage check
     if (winner === null) {
-      // finished check takes priority over damage (CR-03)
-      for (let i = 0; i < cars.length; i++) {
-        if (cars[i].finished) { winner = i; break; }
+      // A Grand Prix ends when the player takes the flag, not when the leader does.
+      if (cars[0].finished) {
+        winner = cars[0].finishPosition === 1 ? 0 :
+          Math.max(1, cars.findIndex(c => c.finished && c.finishPosition === 1));
       }
       if (winner === null && cars[0].damage >= 100) {
         // Player destroyed — furthest-ahead rival by continuous progress (CR-01/R3B-02)
@@ -1928,7 +2041,7 @@ function loop(ts) {
       }
       if (winner !== null) {
         stopEngine(); stopBrakeSound(); stopScrapeSound(); stopMusic(); // AUDIO-01: music fades at the flag
-        updateNitroUI(null); // hide the nitro button once the race is over
+        updateDRSUI(null);
         if (gameMode === 'multi' && winner === 0) Net.send({ type: 'finish' });
         phase = 'done';
       }
@@ -1943,7 +2056,7 @@ function loop(ts) {
     drawTrack();
     drawSkidMarks();
 
-    if (gameMode === 'solo') {
+    if (gameMode !== 'multi') {
       for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
     } else {
       const rp = remoteRenderPos();
@@ -1961,7 +2074,7 @@ function loop(ts) {
     drawMinimap();
 
     drawDamageTint(cars[0].damage); // VFX-01: progressive orange→red damage tint
-    drawNitroBar(cars[0]);          // the meter is a core mechanic — always visible
+    drawDRSStatus(cars[0]);
 
     // Checkpoint flash (green border sweep)
     if (cpFlash > 0) {
@@ -1995,7 +2108,7 @@ function loop(ts) {
     drawTrack();
     drawSkidMarks();
 
-    if (gameMode === 'solo') {
+    if (gameMode !== 'multi') {
       for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
     } else {
       const rp = remoteRenderPos();
@@ -2021,7 +2134,7 @@ function loop(ts) {
 
     drawTrack();
 
-    if (gameMode === 'solo') {
+    if (gameMode !== 'multi') {
       for (let i = cars.length - 1; i >= 0; i--) drawCar(cars[i], i);
     } else {
       drawCar(cars[1], 1);
@@ -2129,10 +2242,24 @@ function onDisconnect() {
 // ── Game lifecycle ─────────────────────────────────────────────────────────────
 function resetGame() {
   if (gameMode === 'solo') {
-    // Solo: 2 cars — player vs the one selected rival
+    // R4A Grand Prix: Colapinto plus the complete 21-driver field.
+    const field = [RIVALS[selectedRivalIdx], ...RIVALS.filter((_, i) => i !== selectedRivalIdx)];
+    const playerSlot = 11;
+    const aiSlots = Array.from({length:GRID_SIZE}, (_, i) => i).filter(i => i !== playerSlot);
+    cars = [Object.assign(makeCar(playerSlot), {
+      isPlayer:true, damage:0, wpIdx:0, rivalData:null, personality:null
+    })];
+    field.forEach((r, i) => cars.push(Object.assign(makeCar(aiSlots[i]), {
+      isPlayer:false, damage:0, wpIdx:0, rivalData:r,
+      personality:personalityFor(r.skill), reactionDelay:0.12 + (i % 6) * 0.045
+    })));
+  } else if (gameMode === 'duel') {
     cars = [
-      Object.assign(makeCar(0), { isPlayer: true,  damage: 0, wpIdx: 0, rivalData: null,                          personality: null }),
-      Object.assign(makeCar(1), { isPlayer: false, damage: 0, wpIdx: 1, rivalData: RIVALS[selectedRivalIdx], personality: personalityFor(RIVALS[selectedRivalIdx].skill) }),
+      Object.assign(makeCar(0), { isPlayer:true, damage:0, wpIdx:0, rivalData:null, personality:null }),
+      Object.assign(makeCar(1), {
+        isPlayer:false, damage:0, wpIdx:0, rivalData:RIVALS[selectedRivalIdx],
+        personality:personalityFor(RIVALS[selectedRivalIdx].skill)
+      })
     ];
   } else {
     // Multi: 2 cars — local player + remote peer
@@ -2163,13 +2290,13 @@ function resetGame() {
   canvasWrap.classList.remove('shake');
   hudTimer.textContent = '0:00.0';
   hudTimer.classList.remove('record');
-  hudRole.textContent  = gameMode === 'solo' ? '' : (isHost ? 'HOST' : 'GUEST');
+  hudRole.textContent  = gameMode !== 'multi' ? '' : (isHost ? 'HOST' : 'GUEST');
   hudRole.style.color = ''; hudRole.style.background = ''; hudRole.style.padding = '';
   floatingTexts      = [];
   cpFlash            = 0;
   damageWarningShown = 0;
   keys.boost         = false;
-  updateNitroUI(null); // hidden until racing (03b-04)
+  updateDRSUI(null);
   skidMarks          = [];
   sparks             = [];
   buildEnvCanvas();   // no-op after the first build
@@ -2195,7 +2322,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
   if (e.key === 'ArrowDown'  || e.key.toLowerCase() === 's') keys.down  = true;
   if (e.key === ' ') { e.preventDefault(); keys.down = true; }  // CTRL-03: spacebar brake (preventDefault stops page scroll)
-  // NITRO (03b-04): hold ↑ / W / Shift to boost while there is meter
+  // DRS: press ↑ / W / Shift when available on the main straight.
   if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key === 'Shift') {
     if (e.key === 'ArrowUp') e.preventDefault();
     keys.boost = true;
@@ -2227,14 +2354,14 @@ bindTouch('touch-left',  'left');
 bindTouch('touch-right', 'right');
 bindTouch('touch-brake', 'down');
 
-// NITRO (03b-04): hold the button to boost — same semantics as the touch controls
-if (nitroBtn) {
+// DRS touch activation.
+if (drsBtn) {
   const bOn  = e => { e.preventDefault(); keys.boost = true; };
   const bOff = e => { e.preventDefault(); keys.boost = false; };
-  nitroBtn.addEventListener('pointerdown',   bOn,  { passive: false });
-  nitroBtn.addEventListener('pointerup',     bOff, { passive: false });
-  nitroBtn.addEventListener('pointercancel', bOff, { passive: false });
-  nitroBtn.addEventListener('pointerleave',  bOff, { passive: false });
+  drsBtn.addEventListener('pointerdown',   bOn,  { passive: false });
+  drsBtn.addEventListener('pointerup',     bOff, { passive: false });
+  drsBtn.addEventListener('pointercancel', bOff, { passive: false });
+  drsBtn.addEventListener('pointerleave',  bOff, { passive: false });
 }
 
 // ── Screen management ─────────────────────────────────────────────────────────
@@ -2386,7 +2513,7 @@ function buildRivalGrid() {
       const idx    = parseInt(card.dataset.rivalIdx, 10);
       selectedRival    = RIVALS[idx];
       selectedRivalIdx = idx;
-      gameMode = 'solo';
+      gameMode = 'duel';
       isHost   = true;
       beginCountdown();
       startResultPoll();
@@ -2430,6 +2557,14 @@ function buildRivalGrid() {
 }
 
 document.getElementById('btn-solo').addEventListener('click', () => {
+  try { getAudioCtx(); } catch(_){}
+  gameMode = 'solo';
+  isHost = true;
+  beginCountdown();
+  startResultPoll();
+});
+
+document.getElementById('btn-duel').addEventListener('click', () => {
   try { getAudioCtx(); } catch(_){}
   // Cancel any in-flight animation timers before rebuilding
   rivalAnimTimers.forEach(clearTimeout);
@@ -2484,7 +2619,7 @@ function pollResults() {
     const won = winner === 0;  // player wins if winner index is 0 (cars[0])
     document.getElementById('result-icon').textContent  = won ? '🏆' : '💨';
     document.getElementById('result-title').textContent = won ? '¡VAMOS COLAPINTO!' : '¡BUEN INTENTO!';
-    if (gameMode === 'solo' && selectedRival) {
+    if (gameMode === 'duel' && selectedRival) {
       const apellido = selectedRival.name.split(' ').pop().toUpperCase();
       const diff     = rivalDiff(selectedRival.skill);
       document.getElementById('result-sub').textContent = won
@@ -2493,9 +2628,14 @@ function pollResults() {
       // Save rival result: victories persist; only write loss if no prior result
       const rKey = `cr_rival_${selectedRivalIdx}`;
       if (won || !localStorage.getItem(rKey)) localStorage.setItem(rKey, won ? 'win' : 'loss');
+    } else if (gameMode === 'solo') {
+      const pos = cars[0] && cars[0].finishPosition ? cars[0].finishPosition : cars.length;
+      document.getElementById('result-sub').textContent = won
+        ? 'Ganaste el Grand Prix de 5 vueltas 🇦🇷'
+        : `Terminaste P${pos}/${cars.length} en el Grand Prix`;
     } else {
       document.getElementById('result-sub').textContent = won
-        ? 'Completaste las 3 vueltas primero 🇦🇷'
+        ? 'Ganaste la carrera multijugador 🇦🇷'
         : 'El rival ganó esta vez — ¡Revancha!';
     }
     // Show best lap info — always render a best-lap line, with a --:-- placeholder
@@ -2507,6 +2647,9 @@ function pollResults() {
           : `Mejor vuelta: ${formatTime(bestLapMs)}`;
       } else {
         resultLap.textContent = 'Mejor vuelta: --:--';
+      }
+      if (gameMode !== 'multi' && cars[0]) {
+        resultLap.textContent += ` · SCORE ${Math.round(cars[0].challengeScore).toLocaleString('es-AR')}`;
       }
     }
     goTo('results');
@@ -2529,3 +2672,20 @@ document.getElementById('btn-cancel-rival').addEventListener('click', () => goTo
 );
 
 updateLobbyRecord();
+
+// Deterministic visual-smoke entry point. It is inert in normal play and lets the
+// release test boot a full grid without brittle DOM automation.
+if (new URLSearchParams(location.search).get('r4a_autostart') === '1') {
+  const smokeParams = new URLSearchParams(location.search);
+  selectedRivalIdx = RIVALS.length - 1;
+  selectedRival = RIVALS[selectedRivalIdx];
+  gameMode = 'solo'; isHost = true;
+  setTimeout(() => {
+    beginCountdown(); startResultPoll();
+    phase = 'racing'; raceStartAt = performance.now(); lapStartTime = raceStartAt;
+    if (smokeParams.get('r4b_drs') === '1') {
+      cars[0].drsAvailable = true;
+      keys.boost = true;
+    }
+  }, 0);
+}

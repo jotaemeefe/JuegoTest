@@ -217,27 +217,35 @@ h2::after {
    scales down preserving aspect); the buttons never fall off-screen. */
 @media (max-width: 520px), (max-height: 780px) {
   body:has(#screen-game.active) { padding: 0; align-items: stretch; }
-  body:has(#screen-game.active) .app { width: 100%; }
+  body:has(#screen-game.active) .app { width: 100vw; max-width: 100vw; min-width: 0; overflow: hidden; }
   #screen-game.active {
     height: 100dvh;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
     flex-direction: column;
   }
   .game-hud { flex-shrink: 0; }
   .game-canvas-wrapper {
     flex: 1;
     min-height: 0;
+    min-width: 0;
+    width: 100vw;
+    max-width: 100vw;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #050a1a;
   }
   .game-canvas-wrapper canvas {
-    width: auto;
-    height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    object-fit: contain;
   }
-  .touch-controls { flex-shrink: 0; }
+  .touch-controls { flex-shrink: 0; max-width: 100vw; }
+  .touch-btn { min-width: 0; }
 }
 
 .game-hud {
@@ -290,8 +298,8 @@ canvas {
   touch-action: none;
 }
 
-/* ── NITRO button (03b-04) — the meter IS the button: fills bottom-up ───────── */
-.nitro-btn {
+/* ── DRS status / activation button ───────────────────────────────────────── */
+.drs-btn {
   position: absolute;
   right: 12px;
   bottom: 12px;
@@ -310,14 +318,14 @@ canvas {
   -webkit-user-select: none;
   z-index: 5;
 }
-.nitro-btn[hidden] { display: none; }
-.nitro-btn.ready { animation: nitroPulse 0.8s ease-in-out infinite; border-color: #7ff2ff; }
-.nitro-btn.active {
+.drs-btn[hidden] { display: none; }
+.drs-btn.ready { animation: drsPulse 0.8s ease-in-out infinite; border-color: #86efac; }
+.drs-btn.active {
   color: #04141a;
   box-shadow: 0 0 26px rgba(0,224,255,0.9);
   border-color: #ffffff;
 }
-@keyframes nitroPulse {
+@keyframes drsPulse {
   0%, 100% { box-shadow: 0 0 6px rgba(0,224,255,0.4); }
   50%      { box-shadow: 0 0 20px rgba(0,224,255,0.9); }
 }
@@ -548,3 +556,26 @@ canvas {
   padding: 24px;
 }
 .disconnect-modal[hidden] { display: none; }
+/* R4A — crisp neo-16-bit presentation */
+canvas, .app, .screen { image-rendering: pixelated; }
+body {
+  background-color: #071426;
+  background-image:
+    linear-gradient(45deg, rgba(0,144,208,.08) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(245,105,183,.06) 25%, transparent 25%);
+  background-size: 16px 16px;
+}
+.logo-block h1, .btn, .hud-item, h2, .tagline, .rival-name {
+  font-family: "Courier New", ui-monospace, monospace;
+  text-shadow: 2px 2px 0 #06101f;
+}
+.btn, .rival-card, .result-banner, .game-hud {
+  border-radius: 2px !important;
+  box-shadow: 4px 4px 0 rgba(0,0,0,.55) !important;
+}
+.btn-cpu {
+  border: 3px solid #f8fafc !important;
+  background: linear-gradient(90deg,#0078b7 0 48%,#e852a3 48% 52%,#0078b7 52%) !important;
+  letter-spacing: .06em;
+}
+.game-canvas-wrapper { border: 3px solid #d9f3ff; background:#071426; }

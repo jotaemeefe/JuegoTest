@@ -9,6 +9,9 @@
 
 ## Phases
 
+- [x] **Phase 4A: Grand Prix Pixel Revolution** — 22-car five-lap Grand Prix, midfield start, longer/wider circuit, non-sticky impulse contacts, full pixel-art presentation and release smoke/visual validation.
+- [x] **Phase 4B: Racecraft & Visual Coherence** — intentional pixel-art scene composition, unique props/crowds, legal DRS, extended straight/grid and a clean-racing mastery score.
+
 - [x] **Phase 1: Foundation** — Bug fixes, expanded controls, 2026 grid, and responsive UI. No architecture changes — immediate playability improvements on the existing oval.
 - [x] **Phase 2: Monaco + 4 Cars** — Replace the oval with the Monaco circuit and refactor the car system to support 4 simultaneous cars (1 player + 3 AI). The two largest structural changes in v2.
 - [x] **Phase 2b: Monaco Gameplay Overhaul** — Rotating follow camera (car always points up), Monaco redesigned at 3.5x scale in 1600x2000 world space, physics re-tuned, minimap added. Correction phase to make the game actually fun before Phase 3 polish.
