@@ -51,7 +51,14 @@ integers. Decimal phases (e.g. 5.1) reserved for urgent insertions if needed lat
   2. A dedicated test segment combining a curve and a crest renders without kinks or self-intersection
   3. Speed sensation is present: segment scroll rate, alternating rumble strips, and shake/FOV response all scale visibly with speed
   4. The renderer caps drawn segments to a fixed draw-distance and holds a playable framerate on real iOS Safari and a mid-tier Android device
-**Plans**: TBD
+**Plans**: 7 plans (7 waves — sequential; all touch game.js)
+- [ ] 05-01-PLAN.md — Synthetic test-loop track data: retire Monaco, author closed-oval ROAD_SPINE + dense SEGMENTS[] table (curve/elevation/width/color, curve+crest test case)
+- [ ] 05-02-PLAN.md — Scanline segment projector + chase camera: combined curve+elevation projection, draw-distance culling, pixel-texture road (D-08), wired into live loop
+- [ ] 05-03-PLAN.md — Sprite compositing: early illustrated frame-selected kart (D-09) + continuously depth-scaled rivals (no pop-in)
+- [ ] 05-04-PLAN.md — Speed sensation (RENDER-02): speed-scaled scroll/rumble/FOV + high-speed shake/vignette + retained engine-pitch
+- [ ] 05-05-PLAN.md — HUD restyle (D-11/D-13) + copy swap (D-02) + DRS/minimap removal (D-12) + lobby multiplayer hide (D-05)
+- [ ] 05-06-PLAN.md — Chase-cam smoke tests + repair Monaco-era tests + RELEASE.md/ROADMAP/CLAUDE.md documentation
+- [ ] 05-07-PLAN.md — Human checkpoint: real-device (iOS Safari + Android) profiling, curve+crest visual, mobile-regression + first-playable sign-off
 **UI hint**: yes
 
 ### Phase 6: Kart Drift Handling
@@ -133,7 +140,7 @@ Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
 | 3b. Gameplay Refactor | v2.0 | 4/4 | Complete | 2026-07-05 |
 | 4A. Grand Prix Pixel Revolution | v2.0 | 1/1 | Complete | 2026-07-11 |
 | 4B. Racecraft & Visual Coherence | v2.0 | 1/1 | Complete | 2026-07-11 |
-| 5. Chase-Cam Renderer Foundation | v3.0 | 0/? | Not started | - |
+| 5. Chase-Cam Renderer Foundation | v3.0 | 0/7 | Planned | - |
 | 6. Kart Drift Handling | v3.0 | 0/? | Not started | - |
 | 7. AI Port & Drift Parity | v3.0 | 0/? | Not started | - |
 | 8. Kartódromo Content & Kart Art | v3.0 | 0/? | Not started | - |
