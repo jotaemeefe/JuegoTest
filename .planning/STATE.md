@@ -1,18 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: milestone
-current_plan: Phase 3b DONE — see 03b-04-SUMMARY.md (arcade pivot)
-status: Awaiting next milestone
-stopped_at: Phase 3b planned (research + 4 wave plans). Implementation not started.
-last_updated: "2026-08-15T19:49:41.093Z"
-last_activity: 2026-08-15 — Milestone v2.0 completed and archived
+milestone: v3.0
+milestone_name: Arcade Rebirth
+status: planning
+last_updated: "2026-08-15T20:03:31.581Z"
+last_activity: 2026-08-15
 progress:
-  total_phases: 19
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 16
-  percent: 21
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -179,10 +177,10 @@ anchors: 03b-RESEARCH.md.
 
 ## Current Position
 
-Phase: Milestone v2.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-08-15 — Milestone v2.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-08-15 — Milestone v3.0 started
 
 ## Operator Next Steps
 

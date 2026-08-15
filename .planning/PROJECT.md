@@ -8,6 +8,22 @@ Un juego de carreras F1 2D top-down en el browser, temático de Franco Colapinto
 
 Una carrera tensa y satisfactoria contra rivales con personalidad propia (o contra la grilla completa en el Grand Prix), en el mítico circuito de Mónaco, que se juega bien tanto en desktop como en celular.
 
+*Este Core Value describe lo shippeado en v2.0. El milestone v3.0 en curso lo reemplaza — ver abajo.*
+
+## Current Milestone: v3.0 Arcade Rebirth
+
+**Goal:** Reconstruir el juego como un arcade racer F1 en tercera persona — cámara detrás del auto, look pseudo-3D, manejo de derrape ajustado tipo kart — reemplazando por completo el sistema top-down de vueltas en Mónaco porque el juego actual no es divertido y no tiene un nicho claro.
+
+**Target features:**
+- Cámara y manejo arcade detrás del auto (no top-down, no simulación realista)
+- Estructura de tramos punto-a-punto con bifurcaciones, reemplazando el circuito cerrado
+- Diseño de pista con identidad — saltos, curvas únicas, sensación de lugar
+- Loop de progresión/meta repensado desde cero para este formato (motivo para volver a jugar)
+- Sin power-ups/combate — sigue siendo carrera F1, no caos tipo Mario Kart
+- Reemplaza VS CPU, Grand Prix y multiplayer — no convive con el sistema top-down
+
+**Key context:** El trabajo de 4A/4B (tileset pixel-art, Mónaco 135%, Grand Prix de 22 autos) queda retirado como núcleo del juego — la mecánica de pista cambia de raíz. Ver Key Decisions para el detalle.
+
 ## Requirements
 
 ### Validated
@@ -40,15 +56,19 @@ Una carrera tensa y satisfactoria contra rivales con personalidad propia (o cont
 
 ### Active
 
-<!-- Scope para el próximo milestone. -->
+<!-- Scope de v3.0 — a definir en detalle vía REQUIREMENTS.md. -->
 
-(Ninguno definido aún — pendiente de `/gsd:new-milestone`)
+- [ ] Cámara y manejo arcade en tercera persona (detrás del auto), look pseudo-3D
+- [ ] Tramos punto-a-punto con bifurcaciones (reemplaza el circuito cerrado de vueltas)
+- [ ] Diseño de pista con identidad: saltos, curvas únicas, sensación de lugar
+- [ ] Loop de progresión/meta nuevo (motivo para volver a jugar)
 
 ### Out of Scope
 
-- Multijugador de 4+ jugadores humanos — cambio arquitectural demasiado grande, v3+
+- Multijugador de 4+ jugadores humanos — cambio arquitectural demasiado grande
 - Inclinómetro (steering por acelerómetro) — nice-to-have, futuro
-- Selector de múltiples circuitos — Mónaco es el único circuito por ahora; selector es scope de un milestone futuro (Championship Mode)
+- Power-ups / combate (proyectiles, ítems tipo Mario Kart) — se toma la cámara/manejo de Mario Kart como referencia, no el caos de combate; sigue siendo una carrera F1
+- Circuito cerrado de Mónaco como núcleo del juego — retirado en v3.0 a favor de tramos punto-a-punto (el asset/código puede reutilizarse pero no es el formato principal)
 - Replay / ghost car — alta complejidad de estado
 - Tabla de clasificación online / backend — el juego es y sigue siendo estático
 
