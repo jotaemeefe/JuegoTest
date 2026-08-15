@@ -31,7 +31,7 @@
 
 - [ ] **TRACK-01**: Tabla de segmentos densa (`SEGMENTS[]`: curvatura, elevación, ancho, color por segmento) reemplaza el `ROAD_SPINE` disperso actual
 - [ ] **TRACK-02**: Un kartódromo real, completo y jugable, con cambios de elevación y 2-3 landmarks reconocibles — resuelve el problema de "pistas vacías/genéricas"
-- [ ] **ART-01**: Sprites nuevos del kart/piloto vistos desde atrás en 3-5 ángulos de giro (reemplaza el sprite rotable top-down), mismo estilo pixel-art que 4A/4B
+- [ ] **ART-01**: Sprites nuevos del kart/piloto vistos desde atrás en 3-5 ángulos de giro (reemplaza el sprite rotable top-down) — dirección de arte "Silksong-style" (dibujado/pintado a mano, con textura y profundidad, paleta luminosa/cálida), NO pixel-art. Decisión tomada en discuss-phase 5 (ver `05-CONTEXT.md` D-06/D-07); reemplaza la referencia a 4A/4B
 
 ### Progresión
 
