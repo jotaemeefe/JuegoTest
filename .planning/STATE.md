@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Arcade Rebirth
-status: roadmap_ready
-last_updated: "2026-08-15T20:30:00.000Z"
-last_activity: 2026-08-15
+status: "Roadmap ready — awaiting `/gsd:plan-phase 5`"
+stopped_at: Phase 5 context gathered
+last_updated: "2026-08-15T20:44:47.461Z"
+last_activity: 2026-08-15 — ROADMAP.md and REQUIREMENTS.md traceability written for v3.0 (Phases 5-11, 19/19 requirements mapped)
 progress:
   total_phases: 7
   completed_phases: 0
@@ -49,6 +50,7 @@ v2.0 phase history (1, 2, 2b, 2c, 3, 3b, 4A, 4B — all complete): see
 ## Performance Metrics
 
 **Velocity (v3.0):**
+
 - Total plans completed: 0
 - Average duration: — (no plans executed yet this milestone)
 
@@ -67,11 +69,14 @@ milestone's roadmap:
   measure without a real track), multiplayer payload late (only depends on Phase 6's
   track-space car state, no other phase blocks it), mobile regression pass last (full
   end-to-end gate) but also checked per-phase along the way.
+
 - Ghost replay (PROGRESS-02) is in-scope this milestone (corrected from "deferred/too complex"
   in earlier PROJECT.md framing) — research found it LOW-MEDIUM complexity, simpler than the
   already-shipped AI racecraft system.
+
 - DRS is explicitly out of scope for v3.0 — no aerodynamic justification on a kartodromo; the
   drift release-boost is this release's only boost mechanic.
+
 - Point-to-point branching (originally the assumed v3.0 format) was dropped before requirements
   were written — closed-lap kartodromo replaces it; removes the entire branch-graph/multiplayer
   divergence risk category the original research scoping had flagged as highest-risk.
@@ -85,6 +90,7 @@ None yet.
 - Phase 6 (drift feel) and Phase 8 (kartodromo content authenticity) are flagged by research as
   needing extra playtest/reference validation during planning — not pure implementation passes.
   See `.planning/research/SUMMARY.md` "Research Flags" and "Gaps to Address".
+
 - ART-01 (new kart/pilot sprite angles) is scoped but not sized — frame count and pipeline
   integration should be resolved early in Phase 8 planning (flagged in research Gaps).
 
@@ -99,10 +105,10 @@ Items acknowledged and carried forward from previous milestone close (2026-08-15
 
 ## Session Continuity
 
-Last session: 2026-08-15
-Stopped at: ROADMAP.md, STATE.md, and REQUIREMENTS.md traceability written for v3.0. No plans
+Last session: 2026-08-15T20:44:47.424Z
+Stopped at: Phase 5 context gathered
 created yet.
-Resume file: None — next step is `/gsd:plan-phase 5`
+Resume file: .planning/phases/05-chase-cam-renderer-foundation/05-CONTEXT.md
 
 ---
 *State reset for v3.0 milestone: 2026-08-15 (v2.0 history archived in `.planning/milestones/`)*
