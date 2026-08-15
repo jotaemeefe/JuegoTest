@@ -68,30 +68,31 @@
 
 | Requirement | Phase |
 |-------------|-------|
-| RENDER-01 | TBD (roadmap) |
-| RENDER-02 | TBD |
-| RENDER-03 | TBD |
-| RENDER-04 | TBD |
-| DRIFT-01 | TBD |
-| DRIFT-02 | TBD |
-| DRIFT-03 | TBD |
-| AI-01 | TBD |
-| AI-02 | TBD |
-| TRACK-01 | TBD |
-| TRACK-02 | TBD |
-| ART-01 | TBD |
-| PROGRESS-01 | TBD |
-| PROGRESS-02 | TBD |
-| PROGRESS-03 | TBD |
-| MP-01 | TBD |
-| MP-02 | TBD |
-| MOBILE-01 | TBD |
-| MOBILE-02 | TBD |
+| RENDER-01 | Phase 5 |
+| RENDER-02 | Phase 5 |
+| RENDER-03 | Phase 5 |
+| RENDER-04 | Phase 5 |
+| DRIFT-01 | Phase 6 |
+| DRIFT-02 | Phase 6 |
+| DRIFT-03 | Phase 6 |
+| AI-01 | Phase 7 |
+| AI-02 | Phase 7 |
+| TRACK-01 | Phase 8 |
+| TRACK-02 | Phase 8 |
+| ART-01 | Phase 8 |
+| PROGRESS-01 | Phase 9 |
+| PROGRESS-02 | Phase 9 |
+| PROGRESS-03 | Phase 9 |
+| MP-01 | Phase 10 |
+| MP-02 | Phase 10 |
+| MOBILE-01 | Phase 11 |
+| MOBILE-02 | Phase 11 |
 
 **Coverage:**
 - v3.0 requirements: 19 total
-- Mapped to phases: 0 / 19 (pendiente del roadmap)
+- Mapped to phases: 19 / 19 ✓
 
 ---
 *Requirements defined: 2026-08-15*
 *Research: `.planning/research/SUMMARY.md` (STACK, FEATURES, ARCHITECTURE, PITFALLS)*
+*Roadmap: `.planning/ROADMAP.md` (Phases 5-11)*

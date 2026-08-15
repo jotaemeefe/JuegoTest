@@ -1,8 +1,9 @@
-# Roadmap: Colapinto F1 Racer
+# Roadmap: Colapinto Kart Racer
 
 ## Milestones
 
 - ✅ **v2.0 Colapinto F1 Racer** — Phases 1-4B (shipped 2026-08-15)
+- 🚧 **v3.0 Arcade Rebirth** — Phases 5-11 (in progress)
 
 ## Phases
 
@@ -22,11 +23,123 @@ Full phase details archived: `.planning/milestones/v2.0-ROADMAP.md`
 
 </details>
 
+### 🚧 v3.0 Arcade Rebirth (In Progress)
+
+**Milestone Goal:** Reconstruir el juego como un kart racer arcade en tercera persona —
+cámara/manejo pseudo-3D, derrape tipo kart, un kartódromo cerrado con identidad propia —
+reemplazando por completo el sistema top-down de vueltas en Mónaco.
+
+**Phase Numbering:** Continues from v2.0's last phase (4B). v3.0 starts at Phase 5, plain
+integers. Decimal phases (e.g. 5.1) reserved for urgent insertions if needed later.
+
+- [ ] **Phase 5: Chase-Cam Renderer Foundation** - Pseudo-3D road-segment renderer replaces top-down view, proven on a test loop with curve+crest handled correctly and mobile framerate validated
+- [ ] **Phase 6: Kart Drift Handling** - Track-space car physics with a tunable, grounded drift state machine (initiate/hold/charge/release boost), validated in an isolated harness
+- [ ] **Phase 7: AI Port & Drift Parity** - AI rivals ported to track-space coordinates with the same drift capability as the player and all existing racecraft preserved
+- [ ] **Phase 8: Kartódromo Content & Kart Art** - One real, complete kartodromo with elevation and landmarks, plus new chase-view kart/pilot sprites, playable end-to-end
+- [ ] **Phase 9: Progression — Best Lap, Rank & Ghost** - Players get a reason to replay: persisted best lap per track, time-based rank grading, and a ghost car to chase
+- [ ] **Phase 10: Multiplayer Payload Update** - P2P racing works again on the new track-space coordinate model
+- [ ] **Phase 11: Mobile Regression & Polish Pass** - Full mobile/iOS re-verification and expanded automated test coverage for the rebuilt game
+
+## Phase Details
+
+### Phase 5: Chase-Cam Renderer Foundation
+**Goal**: The top-down renderer is replaced by a pseudo-3D, third-person chase-cam road-segment renderer that looks and feels fast, and is proven correct on curves, hills, and their combination before any real track is authored.
+**Depends on**: Nothing (first phase of v3.0; builds on existing Canvas 2D/game-loop foundation)
+**Requirements**: RENDER-01, RENDER-02, RENDER-03, RENDER-04
+**Success Criteria** (what must be TRUE):
+  1. The game renders a closed test loop from a third-person camera behind the kart using per-segment projection (no top-down view, no WebGL)
+  2. A dedicated test segment combining a curve and a crest renders without kinks or self-intersection
+  3. Speed sensation is present: segment scroll rate, alternating rumble strips, and shake/FOV response all scale visibly with speed
+  4. The renderer caps drawn segments to a fixed draw-distance and holds a playable framerate on real iOS Safari and a mid-tier Android device
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 6: Kart Drift Handling
+**Goal**: The car's state and handling move from world-space (x, y, angle) to track-space (distance, lateral offset), with a genuine kart-style drift state machine tuned to a grounded (not floaty) feel, validated in an isolated test harness before touching the real track.
+**Depends on**: Phase 5 (drift needs a correctly-projected, visible road to tune against)
+**Requirements**: DRIFT-01, DRIFT-02, DRIFT-03
+**Success Criteria** (what must be TRUE):
+  1. The player's car state is represented as distance-traveled and lateral offset within the track, not world x/y/angle
+  2. Holding the drift input locks a slip angle proportional to steering, distinct from normal turning, and releasing it grants a speed boost scaled by how long the drift was charged
+  3. Drift feel is tunable and testable in a standalone harness independent of the real track content
+  4. Playtesting confirms the drift feels grounded/mechanical rather than floaty or binary on/off
+**Plans**: TBD
+
+### Phase 7: AI Port & Drift Parity
+**Goal**: AI rivals race convincingly in the new track-space coordinate model, with the same drift capability as the player, so cornering never looks "on rails" next to the player's sliding kart.
+**Depends on**: Phase 6 (AI needs the track-space model and drift state machine to port against)
+**Requirements**: AI-01, AI-02
+**Success Criteria** (what must be TRUE):
+  1. AI cars navigate the track using the same track-space (distance, offset) model as the player, with no leftover world-space waypoint following
+  2. AI cars enter and release drift through corners using a decision rule (not scripted per corner), visibly sliding like the player does
+  3. Existing racecraft — predictive traffic avoidance, defensive blocking, rubber-band catch-up, personality-driven pressure mistakes — still functions in the new model
+**Plans**: TBD
+
+### Phase 8: Kartódromo Content & Kart Art
+**Goal**: One fully realized, closed-lap kartodromo with elevation changes and recognizable landmarks is playable end-to-end, viewed through new chase-cam kart/pilot sprites — proving the game has a real sense of place instead of an empty/generic track.
+**Depends on**: Phase 7 (content authoring should happen only after renderer, drift, and AI are proven correct)
+**Requirements**: TRACK-01, TRACK-02, ART-01
+**Success Criteria** (what must be TRUE):
+  1. A dense per-segment track table (curvature, elevation, width, color) replaces the old sparse spine and drives the one real kartodromo
+  2. The kartodromo has visible elevation changes and 2-3 recognizable landmarks a player can identify and describe
+  3. The kart and pilot are drawn from behind in 3-5 distinct turn-angle frames (not a rotated top-down sprite), in the existing pixel-art style
+  4. A full lap of the real kartodromo is completable start-to-finish with no rendering or collision breakage
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 9: Progression — Best Lap, Rank & Ghost
+**Goal**: Players have a persistent reason to come back and improve: their best lap on the new track is saved, graded against thresholds, and can be chased as a ghost car.
+**Depends on**: Phase 8 (progression needs a real track to measure against)
+**Requirements**: PROGRESS-01, PROGRESS-02, PROGRESS-03
+**Success Criteria** (what must be TRUE):
+  1. A player's best lap time on the kartodromo persists across sessions in localStorage
+  2. Finishing a lap shows a rank/grade (e.g. bronze/silver/gold) based on time thresholds
+  3. A translucent, non-colliding ghost car replays the player's own best lap during a race
+**Plans**: TBD
+
+### Phase 10: Multiplayer Payload Update
+**Goal**: P2P racing works again on the rebuilt game, with the network payload and remote-car rendering re-pointed at the new track-space coordinate model.
+**Depends on**: Phase 6 (only needs track-space car state to exist; independent of AI/content/progression work)
+**Requirements**: MP-01, MP-02
+**Success Criteria** (what must be TRUE):
+  1. The `pos` network message carries `{trackDistance, lateralOffset, speed, driftState}` instead of world x/y/angle/lap/cp
+  2. Incoming `pos` data is validated against track-space bounds before being applied
+  3. `remoteRenderPos()` projects and interpolates the remote kart correctly in the new chase-cam view, with no visible jitter beyond the existing 50ms smoothing
+  4. Two players can complete a full multiplayer race on the new kartodromo via a room code, same as before the rewrite
+**Plans**: TBD
+
+### Phase 11: Mobile Regression & Polish Pass
+**Goal**: Every hard-won mobile/iOS fix from v2.0 still works after the full rewrite, and the automated test suite covers the new chase-cam experience.
+**Depends on**: Phase 10 (final pass, after all rendering/input/audio/network surfaces have changed)
+**Requirements**: MOBILE-01, MOBILE-02
+**Success Criteria** (what must be TRUE):
+  1. Lazy AudioContext init on first user gesture, Pointer Events touch controls (including any new drift button), devicePixelRatio-aware sizing, and viewport-fit layout are all re-verified working end-to-end on the rebuilt game
+  2. `tests/` includes smoke tests and reference captures for the chase-cam view, HUD, and new controls (including drift input) on both desktop and mobile viewport sizes
+  3. The game plays without visual cutoff or broken controls on a real iOS Safari session and a small mobile viewport (≤375px width)
+**Plans**: TBD
+
 ## Progress
 
-| Milestone | Phases | Status | Completed |
-|-----------|--------|--------|-----------|
-| v2.0 Colapinto F1 Racer | 1-4B (8 phases) | Shipped | 2026-08-15 |
+**Execution Order:**
+Phases execute in numeric order: 5 → 6 → 7 → 8 → 9 → 10 → 11
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|-----------------|--------|-----------|
+| 1. Foundation | v2.0 | 4/4 | Complete | 2026-06-26 |
+| 2. Monaco + 4 Cars | v2.0 | 4/4 | Complete | 2026-06-28 |
+| 2b. Monaco Overhaul | v2.0 | 4/4 | Complete | 2026-06-29 |
+| 2c. Gameplay Fix | v2.0 | ad-hoc | Complete | 2026-07-02 |
+| 3. AI, Audio & Polish | v2.0 | 1/1 | Complete | 2026-07-04 |
+| 3b. Gameplay Refactor | v2.0 | 4/4 | Complete | 2026-07-05 |
+| 4A. Grand Prix Pixel Revolution | v2.0 | 1/1 | Complete | 2026-07-11 |
+| 4B. Racecraft & Visual Coherence | v2.0 | 1/1 | Complete | 2026-07-11 |
+| 5. Chase-Cam Renderer Foundation | v3.0 | 0/? | Not started | - |
+| 6. Kart Drift Handling | v3.0 | 0/? | Not started | - |
+| 7. AI Port & Drift Parity | v3.0 | 0/? | Not started | - |
+| 8. Kartódromo Content & Kart Art | v3.0 | 0/? | Not started | - |
+| 9. Progression — Best Lap, Rank & Ghost | v3.0 | 0/? | Not started | - |
+| 10. Multiplayer Payload Update | v3.0 | 0/? | Not started | - |
+| 11. Mobile Regression & Polish Pass | v3.0 | 0/? | Not started | - |
 
 ---
 
