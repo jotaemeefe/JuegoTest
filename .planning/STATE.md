@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: milestone
-current_plan: 1
-status: in_progress
-stopped_at: Phase 3b COMPLETE (4/4 waves). W4 was the arcade pivot — NITRO replaces DRS, terminal-velocity bug fixed (caps are real now), AI fast+clean (11.2s ÉLITE laps, zero wall/traffic contact), Monaco visual layer. All suites green.
-last_updated: "2026-07-05T00:00:00.000Z"
+current_plan: Phase 3b DONE — see 03b-04-SUMMARY.md (arcade pivot)
+status: Awaiting next milestone
+stopped_at: Phase 3b planned (research + 4 wave plans). Implementation not started.
+last_updated: "2026-08-15T19:49:41.093Z"
+last_activity: 2026-08-15 — Milestone v2.0 completed and archived
 progress:
-  total_phases: 18
-  completed_phases: 5
-  total_plans: 14
-  completed_plans: 14
-  percent: 28
+  total_phases: 19
+  completed_phases: 4
+  total_plans: 17
+  completed_plans: 16
+  percent: 21
 ---
 
 # Project State
@@ -149,6 +150,15 @@ See: .planning/PROJECT.md (updated 2026-06-26)
 
 - None currently
 
+## Deferred Items
+
+Items acknowledged and deferred at milestone close on 2026-08-15:
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | 01-HUMAN-UAT.md (Phase 01) | approved, 8 open scenarios |
+| verification_gap | 01-VERIFICATION.md (Phase 01) | human_needed |
+
 ## Session Continuity
 
 **Last session:** 2026-07-05
@@ -166,3 +176,14 @@ anchors: 03b-RESEARCH.md.
 
 ---
 *State initialized: 2026-06-26*
+
+## Current Position
+
+Phase: Milestone v2.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-08-15 — Milestone v2.0 completed and archived
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
